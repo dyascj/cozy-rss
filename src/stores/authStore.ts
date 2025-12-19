@@ -105,11 +105,11 @@ export const useAuthStore = create<AuthState & AuthActions>()((set, get) => ({
 
       return true;
     } catch (error) {
+      console.error("Sign up error:", error);
       set({
         isLoading: false,
         error: "An error occurred during sign up",
       });
-      console.error("Sign up error:", error);
       return false;
     }
   },

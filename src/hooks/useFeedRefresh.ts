@@ -8,11 +8,12 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { fetchAndParseFeed } from "@/lib/feed-parser";
 
 export function useFeedRefresh() {
-  const { feeds, updateFeed } = useFeedStore();
+  const { feeds, updateFeed, isInitialized: feedsInitialized } = useFeedStore();
   const { addArticles, pruneArticles } = useArticleStore();
   const { setIsRefreshing } = useUIStore();
   const { maxArticlesPerFeed } = useSettingsStore();
   const isRefreshing = useRef(false);
+  const lastRefreshedFeedCount = useRef(0);
 
   const refreshFeed = useCallback(
     async (feedId: string) => {
@@ -86,18 +87,23 @@ export function useFeedRefresh() {
     }
   }, [feeds, refreshFeed, setIsRefreshing]);
 
-  // Initial refresh on first load
-  const hasInitialRefresh = useRef(false);
+  // Refresh feeds when store is initialized or when new feeds are added
   useEffect(() => {
-    if (!hasInitialRefresh.current && Object.keys(feeds).length > 0) {
-      hasInitialRefresh.current = true;
+    const feedCount = Object.keys(feeds).length;
+
+    // Only refresh if:
+    // 1. Feeds store is initialized
+    // 2. There are feeds to refresh
+    // 3. Either this is the first time OR new feeds were added
+    if (feedsInitialized && feedCount > 0 && feedCount > lastRefreshedFeedCount.current) {
+      lastRefreshedFeedCount.current = feedCount;
       // Small delay to let the UI render first
       const timeout = setTimeout(() => {
         refreshAllFeeds();
-      }, 500);
+      }, 300);
       return () => clearTimeout(timeout);
     }
-  }, [feeds, refreshAllFeeds]);
+  }, [feeds, feedsInitialized, refreshAllFeeds]);
 
   // Listen for manual refresh trigger (no auto-refresh interval)
   useEffect(() => {

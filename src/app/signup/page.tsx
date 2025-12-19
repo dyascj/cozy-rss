@@ -16,6 +16,8 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [validationError, setValidationError] = useState("");
 
+  const isButtonDisabled = isLoading || password.length < 8 || password !== confirmPassword;
+
   const passwordRequirements = [
     { label: "At least 8 characters", met: password.length >= 8 },
   ];
@@ -37,7 +39,6 @@ export default function SignUpPage() {
 
     const success = await signUp(username, password);
     if (success) {
-      // Redirect to onboarding or home
       router.push("/onboarding");
     }
   };
@@ -162,7 +163,7 @@ export default function SignUpPage() {
         {/* Submit button */}
         <motion.button
           type="submit"
-          disabled={isLoading || password.length < 8 || password !== confirmPassword}
+          disabled={isButtonDisabled}
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.99 }}
           className="w-full py-3.5 bg-gradient-to-br from-sage-500 to-sage-600 text-white rounded-xl font-semibold shadow-lg shadow-sage-500/20 hover:shadow-xl hover:shadow-sage-500/25 focus:outline-none focus:ring-2 focus:ring-sage-500/20 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"

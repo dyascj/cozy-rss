@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -17,6 +17,29 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [selectedFeeds, setSelectedFeeds] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Override global overflow: hidden for this page
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+
+    const originalHtmlOverflow = html.style.overflow;
+    const originalBodyOverflow = body.style.overflow;
+    const originalHtmlHeight = html.style.height;
+    const originalBodyHeight = body.style.height;
+
+    html.style.overflow = "auto";
+    body.style.overflow = "auto";
+    html.style.height = "auto";
+    body.style.height = "auto";
+
+    return () => {
+      html.style.overflow = originalHtmlOverflow;
+      body.style.overflow = originalBodyOverflow;
+      html.style.height = originalHtmlHeight;
+      body.style.height = originalBodyHeight;
+    };
+  }, []);
 
   // Get popular feeds for onboarding
   const suggestedFeeds = useMemo(() => {
@@ -44,12 +67,37 @@ export default function OnboardingPage() {
   };
 
   const handleContinue = async () => {
+    if (selectedFeeds.size === 0) {
+      router.push("/");
+      return;
+    }
+
     setIsSubmitting(true);
 
-    // TODO: In the future, subscribe to selected feeds via API
-    // For now, just redirect to the main app
+    try {
+      // Subscribe to each selected feed
+      const feedsToAdd = suggestedFeeds.filter((f) => selectedFeeds.has(f.id));
 
-    router.push("/");
+      for (const feed of feedsToAdd) {
+        await fetch("/api/feeds", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: feed.feedUrl,
+            title: feed.name,
+            siteUrl: feed.siteUrl,
+            iconUrl: feed.iconUrl,
+            folderId: null,
+          }),
+        });
+      }
+
+      router.push("/");
+    } catch (error) {
+      console.error("Error subscribing to feeds:", error);
+      // Still navigate even if some feeds failed
+      router.push("/");
+    }
   };
 
   return (
