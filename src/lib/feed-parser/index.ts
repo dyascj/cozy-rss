@@ -1,4 +1,6 @@
 import Parser from "rss-parser";
+import { feedRequestQueue } from "@/lib/request-queue";
+import { feedCache, refreshTracker } from "@/lib/feed-cache";
 
 export interface ParsedFeed {
   title: string;
@@ -187,16 +189,20 @@ function normalizeJsonFeed(feed: JsonFeed): ParsedFeed {
 
 export interface FetchOptions {
   maxItems?: number;
+  /** Skip cache and force fresh fetch */
+  forceRefresh?: boolean;
+  /** Priority for queue (higher = first) */
+  priority?: number;
+  /** Feed title for status tracking */
+  feedTitle?: string;
 }
 
 const DEFAULT_MAX_ITEMS = 200;
 
-export async function fetchAndParseFeed(
-  url: string,
-  options: FetchOptions = {}
-): Promise<ParsedFeed> {
-  const { maxItems = DEFAULT_MAX_ITEMS } = options;
-
+/**
+ * Internal function to perform the actual fetch
+ */
+async function doFetchFeed(url: string): Promise<ParsedFeed> {
   const response = await fetch(`/api/fetch-feed?url=${encodeURIComponent(url)}`);
 
   if (!response.ok) {
@@ -222,14 +228,118 @@ export async function fetchAndParseFeed(
     }
   }
 
-  // Limit the number of items to prevent memory issues with large feeds
-  if (parsedFeed.items.length > maxItems) {
-    // Sort by date (newest first) before slicing to keep most recent
-    parsedFeed.items.sort((a, b) => b.publishedAt - a.publishedAt);
-    parsedFeed.items = parsedFeed.items.slice(0, maxItems);
+  return parsedFeed;
+}
+
+/**
+ * Fetch and parse an RSS/Atom/JSON feed with rate limiting, caching, and deduplication
+ *
+ * Features:
+ * - Request deduplication: Multiple calls for same URL share one request
+ * - Caching: Results cached for 5 minutes by default
+ * - Rate limiting: Prevents overwhelming feed servers
+ * - Exponential backoff: Retries failed requests with increasing delays
+ * - Priority queue: Important feeds can be fetched first
+ */
+export async function fetchAndParseFeed(
+  url: string,
+  options: FetchOptions = {}
+): Promise<ParsedFeed> {
+  const {
+    maxItems = DEFAULT_MAX_ITEMS,
+    forceRefresh = false,
+    priority = 0,
+    feedTitle,
+  } = options;
+
+  // Check cache first (unless force refresh)
+  if (!forceRefresh) {
+    const cached = feedCache.get(url);
+    if (cached) {
+      return limitItems(cached, maxItems);
+    }
   }
 
-  return parsedFeed;
+  // Check if we can refresh (respects minimum interval)
+  if (!forceRefresh && !feedCache.canRefresh(url)) {
+    // Return stale cache if available, otherwise wait
+    const stale = feedCache.get(url);
+    if (stale) {
+      return limitItems(stale, maxItems);
+    }
+  }
+
+  // Update status for UI
+  if (feedTitle) {
+    refreshTracker.setCurrentFeed(feedTitle);
+  }
+
+  try {
+    // Use request queue for rate limiting and deduplication
+    const parsedFeed = await feedRequestQueue.enqueue(
+      `feed:${url}`,
+      () => doFetchFeed(url),
+      { priority }
+    );
+
+    // Cache the result
+    feedCache.set(url, parsedFeed);
+
+    // Track completion
+    refreshTracker.feedCompleted(true);
+
+    return limitItems(parsedFeed, maxItems);
+  } catch (error) {
+    // Mark as fetched even on failure to prevent rapid retries
+    feedCache.markFetched(url);
+    refreshTracker.feedCompleted(false);
+    throw error;
+  }
+}
+
+/**
+ * Limit items in a feed to prevent memory issues
+ */
+function limitItems(feed: ParsedFeed, maxItems: number): ParsedFeed {
+  if (feed.items.length <= maxItems) {
+    return feed;
+  }
+
+  // Sort by date (newest first) before slicing
+  const sortedItems = [...feed.items].sort((a, b) => b.publishedAt - a.publishedAt);
+
+  return {
+    ...feed,
+    items: sortedItems.slice(0, maxItems),
+  };
+}
+
+/**
+ * Check if a feed can be refreshed (not on cooldown)
+ */
+export function canRefreshFeed(url: string): boolean {
+  return feedCache.canRefresh(url);
+}
+
+/**
+ * Get cooldown time remaining for a feed
+ */
+export function getFeedCooldown(url: string): number {
+  return feedCache.getRefreshCooldown(url);
+}
+
+/**
+ * Clear the feed cache (useful for testing or manual reset)
+ */
+export function clearFeedCache(): void {
+  feedCache.clear();
+}
+
+/**
+ * Get request queue statistics
+ */
+export function getQueueStats() {
+  return feedRequestQueue.getStats();
 }
 
 export async function discoverFeedUrl(url: string): Promise<string | null> {

@@ -9,7 +9,8 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { cn } from "@/utils/cn";
 import { formatRelativeDate } from "@/utils/date";
 import { stripHtml, truncateText } from "@/utils/sanitize";
-import { DoodleCheck, DoodleRefresh, DoodleStar, DoodleSearch } from "@/components/ui/DoodleIcon";
+import { DoodleCheck, DoodleStar, DoodleSearch } from "@/components/ui/DoodleIcon";
+import { RefreshButton } from "@/components/ui/RefreshButton";
 import { QuickActions } from "@/components/features/articles/QuickActions";
 import { SearchBar } from "@/components/features/search/SearchBar";
 import { useSearchStore } from "@/stores/searchStore";
@@ -51,7 +52,6 @@ export function ArticleList({ hideHeader }: ArticleListProps = {}) {
     selectedTagId,
     selectedArticleId,
     selectArticle,
-    isRefreshing,
   } = useUIStore();
   const { tags, articleTags } = useTagStore();
   const { markAsReadOnSelect } = useSettingsStore();
@@ -186,22 +186,22 @@ export function ArticleList({ hideHeader }: ArticleListProps = {}) {
       {!hideHeader && (
         <div className="border-b border-border">
           {/* Main header row */}
-          <div className="flex items-center justify-between px-4 py-3 gap-2">
-            <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center justify-between px-4 py-3 gap-3">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <h2 className="font-semibold text-sm truncate">
                 {isSearching ? "Search Results" : title}
               </h2>
               {!isSearching && unreadCount > 0 && (
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
                   {unreadCount} unread
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
                 onClick={() => setSearchActive(!isSearchActive)}
                 className={cn(
-                  "p-1.5 rounded-md transition-colors",
+                  "p-1.5 rounded-md transition-colors flex-shrink-0",
                   isSearchActive
                     ? "bg-accent text-accent-foreground"
                     : "hover:bg-muted text-muted-foreground"
@@ -211,26 +211,11 @@ export function ArticleList({ hideHeader }: ArticleListProps = {}) {
               >
                 <DoodleSearch size="sm" />
               </button>
-              <button
-                onClick={() => window.dispatchEvent(new CustomEvent("refresh-feeds"))}
-                disabled={isRefreshing}
-                className={cn(
-                  "p-1.5 rounded-md transition-colors",
-                  isRefreshing
-                    ? "text-muted-foreground cursor-not-allowed"
-                    : "hover:bg-muted text-muted-foreground"
-                )}
-                aria-label="Refresh feeds"
-                title="Refresh feeds"
-              >
-                <span className={isRefreshing ? "animate-spin inline-block" : ""}>
-                  <DoodleRefresh size="sm" />
-                </span>
-              </button>
+              <RefreshButton />
               {!isSearching && unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllRead}
-                  className="p-1.5 rounded-md hover:bg-muted transition-colors"
+                  className="p-1.5 rounded-md hover:bg-muted transition-colors flex-shrink-0"
                   aria-label="Mark all as read"
                   title="Mark all as read"
                 >

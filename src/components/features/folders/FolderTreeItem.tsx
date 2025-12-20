@@ -135,7 +135,7 @@ export function FolderTreeItem({
           })()}
           <span className="flex-1 text-left truncate">{folder.name}</span>
           {unreadCount > 0 && (
-            <span className="text-xs bg-muted-foreground/20 px-1.5 py-0.5 rounded-full">
+            <span className="text-xs bg-muted-foreground/20 px-1.5 py-0.5 rounded-full flex-shrink-0">
               {unreadCount}
             </span>
           )}
@@ -189,10 +189,11 @@ export function FolderTreeItem({
                     siteUrl={feed.siteUrl}
                     title={feed.title}
                     size="sm"
+                    className="flex-shrink-0"
                   />
                   <span className="flex-1 text-left truncate">{feed.title}</span>
                   {unread > 0 && (
-                    <span className="text-xs bg-muted-foreground/20 px-1.5 py-0.5 rounded-full">
+                    <span className="text-xs bg-muted-foreground/20 px-1.5 py-0.5 rounded-full flex-shrink-0">
                       {unread}
                     </span>
                   )}

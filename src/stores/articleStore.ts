@@ -362,34 +362,30 @@ export const useArticleStore = create<ArticleState & ArticleActions>()(
         return { articles: updatedArticles };
       });
 
-      // Update each article on the server
+      // Use batch endpoint for better performance
       try {
-        await Promise.all(
-          articlesToUpdate.map((id) => {
-            const article = currentState.articles[id];
-            return fetch(`/api/articles/${id}/state`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                isRead: true,
-                article: article ? {
-                  feedId: article.feedId,
-                  guid: article.guid,
-                  title: article.title,
-                  link: article.link,
-                  content: article.content,
-                  summary: article.summary,
-                  author: article.author,
-                  imageUrl: article.imageUrl,
-                  publishedAt: article.publishedAt,
-                } : undefined,
-              }),
-            });
-          })
-        );
+        const res = await fetch("/api/articles", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            articleIds: articlesToUpdate,
+            isRead: true,
+          }),
+        });
+
+        if (!res.ok) throw new Error("Failed to mark all as read");
       } catch (error) {
         console.error("Failed to mark all as read:", error);
-        // Revert would be complex, for now just log the error
+        // Revert on error
+        set((state) => {
+          const revertedArticles = { ...state.articles };
+          for (const id of articlesToUpdate) {
+            if (revertedArticles[id]) {
+              revertedArticles[id] = { ...revertedArticles[id], isRead: false };
+            }
+          }
+          return { articles: revertedArticles };
+        });
       }
     },
 
