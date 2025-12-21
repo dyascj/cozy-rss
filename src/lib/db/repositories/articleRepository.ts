@@ -531,6 +531,90 @@ export function updateReaderContent(
   ).run(content, error, articleId);
 }
 
+/**
+ * Batch update article states for better performance
+ * Used for operations like "mark all as read"
+ */
+export function batchUpdateArticleStates(
+  userId: string,
+  articleIds: string[],
+  data: {
+    isRead?: boolean;
+    isStarred?: boolean;
+    isReadLater?: boolean;
+  }
+): number {
+  if (articleIds.length === 0) return 0;
+
+  const db = getDb();
+  const timestamp = now();
+  let updated = 0;
+
+  const batchUpdate = db.transaction(() => {
+    for (const articleId of articleIds) {
+      const existing = db
+        .prepare(
+          "SELECT id FROM article_states WHERE article_id = ? AND user_id = ?"
+        )
+        .get(articleId, userId) as { id: string } | undefined;
+
+      if (existing) {
+        const updates: string[] = [];
+        const values: (number | null)[] = [];
+
+        if (data.isRead !== undefined) {
+          updates.push("is_read = ?");
+          values.push(data.isRead ? 1 : 0);
+          updates.push("read_at = ?");
+          values.push(data.isRead ? timestamp : null);
+        }
+        if (data.isStarred !== undefined) {
+          updates.push("is_starred = ?");
+          values.push(data.isStarred ? 1 : 0);
+          updates.push("starred_at = ?");
+          values.push(data.isStarred ? timestamp : null);
+        }
+        if (data.isReadLater !== undefined) {
+          updates.push("is_read_later = ?");
+          values.push(data.isReadLater ? 1 : 0);
+          updates.push("read_later_added_at = ?");
+          values.push(data.isReadLater ? timestamp : null);
+        }
+
+        if (updates.length > 0) {
+          db.prepare(
+            `UPDATE article_states SET ${updates.join(", ")} WHERE article_id = ? AND user_id = ?`
+          ).run(...values, articleId, userId);
+          updated++;
+        }
+      } else {
+        // Create new state
+        const stateId = generateId();
+        db.prepare(
+          `
+          INSERT INTO article_states (id, user_id, article_id, is_read, is_starred, is_read_later, read_at, starred_at, read_later_added_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+        ).run(
+          stateId,
+          userId,
+          articleId,
+          data.isRead ? 1 : 0,
+          data.isStarred ? 1 : 0,
+          data.isReadLater ? 1 : 0,
+          data.isRead ? timestamp : null,
+          data.isStarred ? timestamp : null,
+          data.isReadLater ? timestamp : null
+        );
+        updated++;
+      }
+    }
+  });
+
+  batchUpdate();
+  return updated;
+}
+
 export function pruneArticles(feedId: string, maxArticles: number): number {
   const db = getDb();
 

@@ -2,6 +2,68 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/getUser";
 import * as articleRepo from "@/lib/db/repositories/articleRepository";
 
+/**
+ * PATCH /api/articles
+ * Batch update article states (e.g., mark multiple as read)
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { articleIds, isRead, isStarred, isReadLater } = body;
+
+    if (!Array.isArray(articleIds) || articleIds.length === 0) {
+      return NextResponse.json(
+        { error: "articleIds must be a non-empty array" },
+        { status: 400 }
+      );
+    }
+
+    // Limit batch size to prevent abuse
+    if (articleIds.length > 500) {
+      return NextResponse.json(
+        { error: "Maximum batch size is 500 articles" },
+        { status: 400 }
+      );
+    }
+
+    const updateData: {
+      isRead?: boolean;
+      isStarred?: boolean;
+      isReadLater?: boolean;
+    } = {};
+
+    if (isRead !== undefined) updateData.isRead = isRead;
+    if (isStarred !== undefined) updateData.isStarred = isStarred;
+    if (isReadLater !== undefined) updateData.isReadLater = isReadLater;
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { error: "At least one update field is required" },
+        { status: 400 }
+      );
+    }
+
+    const updated = articleRepo.batchUpdateArticleStates(
+      user.id,
+      articleIds,
+      updateData
+    );
+
+    return NextResponse.json({ updated });
+  } catch (error) {
+    console.error("Error batch updating articles:", error);
+    return NextResponse.json(
+      { error: "Failed to update articles" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser();

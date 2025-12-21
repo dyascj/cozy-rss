@@ -101,12 +101,12 @@ export function Sidebar({ onFeedSelect, hideHeader }: SidebarProps = {}) {
       {/* Header */}
       {!hideHeader && (
         <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/60">
-          <h1 className="font-semibold text-sm tracking-tight text-foreground">Reader</h1>
-          <div className="flex items-center gap-1">
+          <h1 className="font-semibold text-sm tracking-tight text-foreground truncate">Reader</h1>
+          <div className="flex items-center gap-2 flex-shrink-0">
             <ProfileButton />
             <button
               onClick={openSettingsModal}
-              className="p-1.5 rounded-md hover:bg-muted/80 transition-colors"
+              className="p-1.5 rounded-md hover:bg-muted/80 transition-colors flex-shrink-0"
               aria-label="Settings"
             >
               <DoodleSettings size="sm" />
@@ -132,11 +132,11 @@ export function Sidebar({ onFeedSelect, hideHeader }: SidebarProps = {}) {
                   : "text-foreground/80 hover:bg-muted/70 hover:text-foreground"
               )}
             >
-              <DoodleInbox size="sm" />
-              <span className="flex-1 text-left">All Articles</span>
+              <DoodleInbox size="sm" className="flex-shrink-0" />
+              <span className="flex-1 text-left truncate">All Articles</span>
               {totalUnreadCount > 0 && (
                 <span className={cn(
-                  "text-xs font-medium px-2 py-0.5 rounded-full",
+                  "text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0",
                   viewType === "all" && !selectedFeedId && !selectedFolderId
                     ? "bg-accent-foreground/20"
                     : "bg-accent/15 text-accent"
@@ -159,11 +159,11 @@ export function Sidebar({ onFeedSelect, hideHeader }: SidebarProps = {}) {
                   : "text-foreground/80 hover:bg-muted/70 hover:text-foreground"
               )}
             >
-              <DoodleStar size="sm" />
-              <span className="flex-1 text-left">Starred</span>
+              <DoodleStar size="sm" className="flex-shrink-0" />
+              <span className="flex-1 text-left truncate">Starred</span>
               {starredCount > 0 && (
                 <span className={cn(
-                  "text-xs font-medium px-2 py-0.5 rounded-full",
+                  "text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0",
                   viewType === "starred"
                     ? "bg-accent-foreground/20"
                     : "bg-muted text-muted-foreground"
@@ -186,11 +186,11 @@ export function Sidebar({ onFeedSelect, hideHeader }: SidebarProps = {}) {
                   : "text-foreground/80 hover:bg-muted/70 hover:text-foreground"
               )}
             >
-              <DoodleClock size="sm" />
-              <span className="flex-1 text-left">Read Later</span>
+              <DoodleClock size="sm" className="flex-shrink-0" />
+              <span className="flex-1 text-left truncate">Read Later</span>
               {readLaterCount > 0 && (
                 <span className={cn(
-                  "text-xs font-medium px-2 py-0.5 rounded-full",
+                  "text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0",
                   viewType === "readLater"
                     ? "bg-accent-foreground/20"
                     : "bg-muted text-muted-foreground"
@@ -208,8 +208,8 @@ export function Sidebar({ onFeedSelect, hideHeader }: SidebarProps = {}) {
                 "text-foreground/80 hover:bg-muted/70 hover:text-foreground"
               )}
             >
-              <DoodleCompass size="sm" />
-              <span className="flex-1 text-left">Discover</span>
+              <DoodleCompass size="sm" className="flex-shrink-0" />
+              <span className="flex-1 text-left truncate">Discover</span>
             </Link>
 
             {/* Tags - Always visible */}
@@ -218,11 +218,11 @@ export function Sidebar({ onFeedSelect, hideHeader }: SidebarProps = {}) {
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tags</p>
               <button
                 onClick={() => useUIStore.getState().openCreateTagModal()}
-                className="p-1 rounded hover:bg-muted/80 transition-colors"
+                className="p-1.5 rounded hover:bg-muted/80 transition-colors flex-shrink-0"
                 aria-label="Create tag"
                 title="Create tag"
               >
-                <DoodlePlus size="xs" />
+                <DoodlePlus size="sm" />
               </button>
             </div>
             {allTags.length > 0 ? (
@@ -244,11 +244,11 @@ export function Sidebar({ onFeedSelect, hideHeader }: SidebarProps = {}) {
                           : "text-foreground/80 hover:bg-muted/70 hover:text-foreground"
                       )}
                     >
-                      <span className={cn("w-2.5 h-2.5 rounded-full ring-2 ring-offset-1 ring-offset-sidebar-bg", colorConfig.bg)} />
+                      <span className={cn("w-2.5 h-2.5 rounded-full ring-2 ring-offset-1 ring-offset-sidebar-bg flex-shrink-0", colorConfig.bg)} />
                       <span className="flex-1 text-left truncate">{tag.name}</span>
                       {count > 0 && (
                         <span className={cn(
-                          "text-xs font-medium px-2 py-0.5 rounded-full",
+                          "text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0",
                           viewType === "tag" && selectedTagId === tag.id
                             ? "bg-accent-foreground/20"
                             : "bg-muted text-muted-foreground"
@@ -274,11 +274,11 @@ export function Sidebar({ onFeedSelect, hideHeader }: SidebarProps = {}) {
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Feeds</p>
               <button
                 onClick={openCreateFolderModal}
-                className="p-1 rounded hover:bg-muted/80 transition-colors"
+                className="p-1.5 rounded hover:bg-muted/80 transition-colors flex-shrink-0"
                 aria-label="Create folder"
                 title="Create folder"
               >
-                <DoodleFolderPlus size="xs" />
+                <DoodleFolderPlus size="sm" />
               </button>
             </div>
 
@@ -337,11 +337,12 @@ export function Sidebar({ onFeedSelect, hideHeader }: SidebarProps = {}) {
                         siteUrl={feed.siteUrl}
                         title={feed.title}
                         size="md"
+                        className="flex-shrink-0"
                       />
                       <span className="flex-1 text-left truncate">{feed.title}</span>
                       {unread > 0 && (
                         <span className={cn(
-                          "text-xs font-medium px-2 py-0.5 rounded-full",
+                          "text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0",
                           selectedFeedId === feedId
                             ? "bg-accent-foreground/20"
                             : "bg-accent/15 text-accent"
