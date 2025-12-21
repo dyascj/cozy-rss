@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useFeedStore } from "@/stores/feedStore";
-import { useArticleStore } from "@/stores/articleStore";
+import { useArticleStore, Article } from "@/stores/articleStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cn } from "@/utils/cn";
@@ -19,6 +19,8 @@ import { useTagStore } from "@/stores/tagStore";
 import { SwipeableArticleItem } from "@/components/ui/SwipeableArticleItem";
 import { FeedIcon } from "@/components/ui/FeedIcon";
 import { ArticleThumbnail } from "@/components/ui/ArticleThumbnail";
+import { MobileActionSheet } from "@/components/ui/MobileActionSheet";
+import { useLongPress } from "@/hooks/useLongPress";
 
 // Extract YouTube video ID from URL
 function getYouTubeThumbnail(url: string): string | null {
@@ -35,6 +37,123 @@ function getYouTubeThumbnail(url: string): string | null {
     }
   }
   return null;
+}
+
+interface ArticleListItemProps {
+  article: Article;
+  feed: { title: string; iconUrl?: string | null; siteUrl?: string | null } | undefined;
+  isSelected: boolean;
+  isHovered: boolean;
+  onHover: (id: string | null) => void;
+  onClick: () => void;
+  onLongPress: () => void;
+}
+
+function ArticleListItem({
+  article,
+  feed,
+  isSelected,
+  isHovered,
+  onHover,
+  onClick,
+  onLongPress,
+}: ArticleListItemProps) {
+  const longPressHandlers = useLongPress({
+    onLongPress,
+    onClick,
+    threshold: 500,
+  });
+
+  return (
+    <SwipeableArticleItem article={article}>
+      <div
+        className="relative group"
+        onMouseEnter={() => onHover(article.id)}
+        onMouseLeave={() => onHover(null)}
+      >
+        <div
+          {...longPressHandlers}
+          className={cn(
+            "w-full text-left px-4 py-3 transition-colors cursor-pointer select-none",
+            isSelected ? "bg-accent/10" : "hover:bg-muted/50",
+            article.isRead && "opacity-60"
+          )}
+        >
+          <div className="flex items-start gap-3">
+            {/* Main content */}
+            <div className="flex-1 min-w-0">
+              {/* Feed info row */}
+              <div className="flex items-center gap-2 mb-1.5">
+                {feed && (
+                  <FeedIcon
+                    iconUrl={feed.iconUrl ?? undefined}
+                    siteUrl={feed.siteUrl ?? undefined}
+                    title={feed.title}
+                    size="sm"
+                  />
+                )}
+                <span className="text-xs text-muted-foreground truncate">
+                  {feed?.title || "Unknown"}
+                </span>
+                <span className="text-xs text-muted-foreground">·</span>
+                <span className="text-xs text-muted-foreground flex-shrink-0">
+                  {formatRelativeDate(article.publishedAt)}
+                </span>
+                {article.isStarred && (
+                  <span className="text-yellow-500 flex-shrink-0">
+                    <DoodleStar size="xs" />
+                  </span>
+                )}
+              </div>
+
+              {/* Title */}
+              <h3
+                className={cn(
+                  "text-sm leading-snug line-clamp-2",
+                  !article.isRead && "font-semibold"
+                )}
+              >
+                {article.title}
+              </h3>
+
+              {/* Summary */}
+              {(() => {
+                const summary = truncateText(
+                  stripHtml(article.summary || article.content || ""),
+                  120
+                );
+                return summary ? (
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                    {summary}
+                  </p>
+                ) : null;
+              })()}
+            </div>
+
+            {/* Thumbnail on right - only if available */}
+            {(() => {
+              const thumbnailUrl = article.imageUrl || getYouTubeThumbnail(article.link);
+              return thumbnailUrl ? (
+                <ArticleThumbnail
+                  src={thumbnailUrl}
+                  alt={article.title}
+                  size="sm"
+                  className="flex-shrink-0 rounded-md"
+                />
+              ) : null;
+            })()}
+          </div>
+        </div>
+
+        {/* Quick actions - desktop only (hover-based) */}
+        <QuickActions
+          article={article}
+          isVisible={isHovered}
+          className="absolute right-16 top-1/2 -translate-y-1/2 hidden sm:flex"
+        />
+      </div>
+    </SwipeableArticleItem>
+  );
 }
 
 interface ArticleListProps {
@@ -57,6 +176,7 @@ export function ArticleList({ hideHeader }: ArticleListProps = {}) {
   const { markAsReadOnSelect } = useSettingsStore();
   const { markAsRead } = useArticleStore();
   const [hoveredArticleId, setHoveredArticleId] = useState<string | null>(null);
+  const [actionSheetArticle, setActionSheetArticle] = useState<Article | null>(null);
   const { isSearchActive, setSearchActive } = useSearchStore();
   const { searchResults, resultCount, isSearching } = useArticleSearch();
 
@@ -270,102 +390,30 @@ export function ArticleList({ hideHeader }: ArticleListProps = {}) {
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
-                  <SwipeableArticleItem article={article}>
-                    <div
-                      className="relative group"
-                      onMouseEnter={() => setHoveredArticleId(article.id)}
-                      onMouseLeave={() => setHoveredArticleId(null)}
-                    >
-                      <button
-                        onClick={() => handleArticleClick(article.id)}
-                        className={cn(
-                          "w-full text-left px-4 py-3 transition-colors",
-                          selectedArticleId === article.id
-                            ? "bg-accent/10"
-                            : "hover:bg-muted/50",
-                          article.isRead && "opacity-60"
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          {/* Main content */}
-                          <div className="flex-1 min-w-0">
-                            {/* Feed info row */}
-                            <div className="flex items-center gap-2 mb-1.5">
-                              {feed && (
-                                <FeedIcon
-                                  iconUrl={feed.iconUrl}
-                                  siteUrl={feed.siteUrl}
-                                  title={feed.title}
-                                  size="sm"
-                                />
-                              )}
-                              <span className="text-xs text-muted-foreground truncate">
-                                {feed?.title || "Unknown"}
-                              </span>
-                              <span className="text-xs text-muted-foreground">·</span>
-                              <span className="text-xs text-muted-foreground flex-shrink-0">
-                                {formatRelativeDate(article.publishedAt)}
-                              </span>
-                              {article.isStarred && (
-                                <span className="text-yellow-500 flex-shrink-0">
-                                  <DoodleStar size="xs" />
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Title */}
-                            <h3
-                              className={cn(
-                                "text-sm leading-snug line-clamp-2",
-                                !article.isRead && "font-semibold"
-                              )}
-                            >
-                              {article.title}
-                            </h3>
-
-                            {/* Summary */}
-                            {(() => {
-                              const summary = truncateText(
-                                stripHtml(article.summary || article.content || ""),
-                                120
-                              );
-                              return summary ? (
-                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                  {summary}
-                                </p>
-                              ) : null;
-                            })()}
-                          </div>
-
-                          {/* Thumbnail on right - only if available */}
-                          {(() => {
-                            const thumbnailUrl = article.imageUrl || getYouTubeThumbnail(article.link);
-                            return thumbnailUrl ? (
-                              <ArticleThumbnail
-                                src={thumbnailUrl}
-                                alt={article.title}
-                                size="sm"
-                                className="flex-shrink-0 rounded-md"
-                              />
-                            ) : null;
-                          })()}
-                        </div>
-                      </button>
-
-                      {/* Quick actions */}
-                      <QuickActions
-                        article={article}
-                        isVisible={hoveredArticleId === article.id}
-                        className="absolute right-16 top-1/2 -translate-y-1/2"
-                      />
-                    </div>
-                  </SwipeableArticleItem>
+                  <ArticleListItem
+                    article={article}
+                    feed={feed}
+                    isSelected={selectedArticleId === article.id}
+                    isHovered={hoveredArticleId === article.id}
+                    onHover={setHoveredArticleId}
+                    onClick={() => handleArticleClick(article.id)}
+                    onLongPress={() => setActionSheetArticle(article)}
+                  />
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Mobile action sheet for long-press */}
+      {actionSheetArticle && (
+        <MobileActionSheet
+          article={actionSheetArticle}
+          isOpen={!!actionSheetArticle}
+          onClose={() => setActionSheetArticle(null)}
+        />
+      )}
     </div>
   );
 }

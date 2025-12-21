@@ -2,10 +2,14 @@
 
 import { useCallback, useRef, useState, useEffect } from "react";
 import { useUIStore } from "@/stores/uiStore";
+import { useFeedStore } from "@/stores/feedStore";
+import { useTagStore } from "@/stores/tagStore";
 import { Sidebar } from "./Sidebar";
 import { ArticleList } from "./ArticleList";
 import { ArticleContent } from "./ArticleContent";
 import { MobileBottomTabBar } from "./MobileBottomTabBar";
+import { MobileArticleActionBar } from "./MobileArticleActionBar";
+import { ProfileButton } from "@/components/account/ProfileButton";
 import { cn } from "@/utils/cn";
 import { DoodleMenu, DoodleChevronLeft, DoodleSettings } from "@/components/ui/DoodleIcon";
 
@@ -97,35 +101,71 @@ export function ThreeColumnLayout() {
     [articleListWidth, setArticleListWidth, isMobile, isTablet]
   );
 
+  const { feeds, folders } = useFeedStore();
+  const { tags } = useTagStore();
+
+  // Get the current view title for mobile header
+  const getMobileTitle = () => {
+    const { viewType, selectedFeedId, selectedFolderId, selectedTagId } = useUIStore.getState();
+
+    if (mobilePanel === "sidebar") return "Feeds";
+
+    if (viewType === "starred") return "Starred";
+    if (viewType === "readLater") return "Read Later";
+    if (viewType === "tag" && selectedTagId) {
+      const tag = tags[selectedTagId];
+      return tag?.name || "Tag";
+    }
+    if (viewType === "feed" && selectedFeedId) {
+      const feed = feeds[selectedFeedId];
+      return feed?.title || "Feed";
+    }
+    if (viewType === "folder" && selectedFolderId) {
+      const folder = folders[selectedFolderId];
+      return folder?.name || "Folder";
+    }
+    return "All Articles";
+  };
+
   // Mobile layout - single panel view with bottom tab bar
   if (isMobile) {
     const showTabBar = mobilePanel !== "content";
+    const showArticleActionBar = mobilePanel === "content" && selectedArticleId;
 
     return (
       <div
         ref={containerRef}
         className="flex flex-col h-screen w-screen overflow-hidden bg-background"
       >
-        {/* Mobile Header - simplified since tab bar handles navigation */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-sidebar-bg safe-area-top">
+        {/* Mobile Header */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-sidebar-bg safe-area-top">
           {mobilePanel === "content" ? (
             <>
               <button
                 onClick={() => setMobilePanel("list")}
-                className="p-2 rounded-md hover:bg-muted transition-colors flex items-center gap-1 -ml-2"
+                className="p-2 rounded-md hover:bg-muted active:bg-muted transition-colors flex items-center gap-1 -ml-2 min-h-[44px]"
                 aria-label="Back to list"
               >
                 <DoodleChevronLeft size="md" />
-                <span className="text-sm">Back</span>
+                <span className="text-sm font-medium">Back</span>
               </button>
               <div className="flex-1" />
             </>
           ) : (
             <>
-              <h1 className="font-semibold text-sm">
-                {mobilePanel === "sidebar" ? "Feeds" : "Articles"}
+              <h1 className="font-semibold text-sm truncate flex-1 min-w-0">
+                {getMobileTitle()}
               </h1>
-              <div className="flex-1" />
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <ProfileButton />
+                <button
+                  onClick={openSettingsModal}
+                  className="p-2 rounded-md hover:bg-muted active:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  aria-label="Settings"
+                >
+                  <DoodleSettings size="sm" />
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -167,12 +207,17 @@ export function ThreeColumnLayout() {
                 : "translate-x-full"
             )}
           >
-            <ArticleContent onBack={() => setMobilePanel("list")} />
+            <ArticleContent onBack={() => setMobilePanel("list")} hideToolbar />
           </div>
         </div>
 
         {/* Bottom Tab Bar - hidden when reading article */}
         {showTabBar && <MobileBottomTabBar />}
+
+        {/* Article Action Bar - shown when reading article */}
+        {showArticleActionBar && (
+          <MobileArticleActionBar articleId={selectedArticleId} />
+        )}
       </div>
     );
   }

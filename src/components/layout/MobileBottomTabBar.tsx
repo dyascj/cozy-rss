@@ -81,7 +81,7 @@ export function MobileBottomTabBar({ onTabChange }: MobileBottomTabBarProps) {
               key={tab.id}
               onClick={() => handleTabPress(tab.id)}
               className={cn(
-                "flex-1 flex flex-col items-center justify-center gap-1 transition-colors",
+                "flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[48px]",
                 isActive
                   ? "text-accent"
                   : "text-muted-foreground active:bg-muted/50"
@@ -92,7 +92,7 @@ export function MobileBottomTabBar({ onTabChange }: MobileBottomTabBarProps) {
               <span className={cn("transition-transform", isActive && "scale-110")}>
                 <Icon size="md" />
               </span>
-              <span className="text-[10px] font-medium">{tab.label}</span>
+              <span className="text-[11px] font-medium">{tab.label}</span>
             </button>
           );
         })}

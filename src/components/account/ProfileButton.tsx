@@ -45,22 +45,23 @@ export function ProfileButton() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold transition-all",
-          "bg-sage-100 text-sage-700 hover:bg-sage-200",
+          "w-9 h-9 rounded-lg flex items-center justify-center text-sm font-semibold transition-all min-w-[44px] min-h-[44px]",
+          "bg-sage-100 text-sage-700 hover:bg-sage-200 active:bg-sage-300",
           isOpen && "ring-2 ring-sage-300"
         )}
         title={user.username}
+        aria-label={`Account: ${user.username}`}
       >
         {initial}
       </button>
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-56 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute right-0 top-full mt-2 w-56 max-w-[calc(100vw-2rem)] bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-in fade-in slide-in-from-top-2 duration-200">
           {/* User info */}
-          <div className="px-3 py-2 border-b border-border">
+          <div className="px-4 py-3 border-b border-border">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-sage-100 flex items-center justify-center text-sage-700 font-semibold">
+              <div className="w-10 h-10 rounded-lg bg-sage-100 flex items-center justify-center text-sage-700 font-semibold flex-shrink-0">
                 {initial}
               </div>
               <div className="flex-1 min-w-0">
@@ -81,7 +82,7 @@ export function ProfileButton() {
                 setIsOpen(false);
                 signOut();
               }}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-muted active:bg-muted transition-colors min-h-[48px]"
             >
               <DoodleArrowRight size="sm" />
               <span>Sign out</span>

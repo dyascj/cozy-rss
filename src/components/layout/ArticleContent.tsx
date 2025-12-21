@@ -51,9 +51,10 @@ import { useTagStore } from "@/stores/tagStore";
 
 interface ArticleContentProps {
   onBack?: () => void;
+  hideToolbar?: boolean;
 }
 
-export function ArticleContent({ onBack }: ArticleContentProps = {}) {
+export function ArticleContent({ onBack, hideToolbar }: ArticleContentProps = {}) {
   const { feeds } = useFeedStore();
   const { articles, toggleStarred, toggleReadLater, markAsRead, markAsUnread } = useArticleStore();
   const { selectedArticleId } = useUIStore();
@@ -138,7 +139,8 @@ export function ArticleContent({ onBack }: ArticleContentProps = {}) {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Toolbar */}
+      {/* Toolbar - hidden on mobile where we use bottom action bar */}
+      {!hideToolbar && (
       <div className="flex items-center gap-1 px-4 py-2 border-b border-border">
         <button
           onClick={() => toggleStarred(article.id)}
@@ -216,6 +218,7 @@ export function ArticleContent({ onBack }: ArticleContentProps = {}) {
           <DoodleExternalLink size="sm" />
         </button>
       </div>
+      )}
 
       {/* Content */}
       <ScrollArea.Root className="flex-1 overflow-hidden">
