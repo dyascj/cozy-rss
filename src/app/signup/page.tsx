@@ -66,7 +66,7 @@ export default function SignUpPage() {
         <div>
           <label
             htmlFor="username"
-            className="block text-sm font-medium text-stone-700 mb-2"
+            className="block text-sm font-medium text-foreground/80 mb-2"
           >
             Username
           </label>
@@ -78,9 +78,9 @@ export default function SignUpPage() {
             placeholder="Choose a username"
             required
             autoComplete="username"
-            className="w-full px-4 py-3 bg-stone-50/50 border border-stone-200 rounded-xl text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-sage-500/20 focus:border-sage-400 transition-all"
+            className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
           />
-          <p className="mt-1.5 text-xs text-stone-400">
+          <p className="mt-1.5 text-xs text-muted-foreground">
             Letters, numbers, underscores, and hyphens only
           </p>
         </div>
@@ -89,7 +89,7 @@ export default function SignUpPage() {
         <div>
           <label
             htmlFor="password"
-            className="block text-sm font-medium text-stone-700 mb-2"
+            className="block text-sm font-medium text-foreground/80 mb-2"
           >
             Password
           </label>
@@ -101,7 +101,7 @@ export default function SignUpPage() {
             placeholder="Create a password"
             required
             autoComplete="new-password"
-            className="w-full px-4 py-3 bg-stone-50/50 border border-stone-200 rounded-xl text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-sage-500/20 focus:border-sage-400 transition-all"
+            className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
           />
 
           {/* Password requirements */}
@@ -114,14 +114,14 @@ export default function SignUpPage() {
                 <span
                   className={`w-4 h-4 rounded-full flex items-center justify-center ${
                     req.met
-                      ? "bg-sage-100 text-sage-600"
-                      : "bg-stone-100 text-stone-400"
+                      ? "bg-accent/20 text-accent"
+                      : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {req.met && <DoodleCheck size="xs" />}
                 </span>
                 <span
-                  className={req.met ? "text-sage-600" : "text-stone-400"}
+                  className={req.met ? "text-accent" : "text-muted-foreground"}
                 >
                   {req.label}
                 </span>
@@ -134,7 +134,7 @@ export default function SignUpPage() {
         <div>
           <label
             htmlFor="confirmPassword"
-            className="block text-sm font-medium text-stone-700 mb-2"
+            className="block text-sm font-medium text-foreground/80 mb-2"
           >
             Confirm Password
           </label>
@@ -146,15 +146,15 @@ export default function SignUpPage() {
             placeholder="Confirm your password"
             required
             autoComplete="new-password"
-            className="w-full px-4 py-3 bg-stone-50/50 border border-stone-200 rounded-xl text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-sage-500/20 focus:border-sage-400 transition-all"
+            className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
           />
           {confirmPassword && password !== confirmPassword && (
-            <p className="mt-1.5 text-xs text-red-500">
+            <p className="mt-1.5 text-xs text-destructive">
               Passwords do not match
             </p>
           )}
           {confirmPassword && password === confirmPassword && password.length >= 8 && (
-            <p className="mt-1.5 text-xs text-sage-600 flex items-center gap-1">
+            <p className="mt-1.5 text-xs text-accent flex items-center gap-1">
               <DoodleCheck size="xs" /> Passwords match
             </p>
           )}
@@ -166,7 +166,7 @@ export default function SignUpPage() {
           disabled={isButtonDisabled}
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.99 }}
-          className="w-full py-3.5 bg-gradient-to-br from-sage-500 to-sage-600 text-white rounded-xl font-semibold shadow-lg shadow-sage-500/20 hover:shadow-xl hover:shadow-sage-500/25 focus:outline-none focus:ring-2 focus:ring-sage-500/20 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+          className="w-full py-3.5 bg-accent text-accent-foreground rounded-xl font-medium hover:opacity-90 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
         >
           {isLoading ? (
             <>
@@ -183,10 +183,10 @@ export default function SignUpPage() {
         {/* Divider */}
         <div className="relative py-4">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-stone-200" />
+            <div className="w-full border-t border-border" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-white/80 text-stone-400">
+            <span className="px-4 bg-card text-muted-foreground">
               Already have an account?
             </span>
           </div>
@@ -195,7 +195,7 @@ export default function SignUpPage() {
         {/* Sign in link */}
         <Link
           href="/signin"
-          className="block w-full py-3.5 text-center text-stone-600 font-medium bg-stone-50 hover:bg-stone-100 rounded-xl transition-colors"
+          className="block w-full py-3.5 text-center text-foreground font-medium bg-muted hover:bg-border rounded-xl transition-colors"
         >
           Sign in instead
         </Link>

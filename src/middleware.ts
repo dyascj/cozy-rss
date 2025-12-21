@@ -7,6 +7,8 @@ const publicRoutes = [
   "/signin",
   "/signup",
   "/onboarding",
+  "/privacy",
+  "/terms",
 ];
 
 // Routes that should redirect to app if authenticated

@@ -48,6 +48,7 @@ function getYouTubeVideoFromLink(url: string): VideoEmbedType | null {
 import { TagSelector } from "@/components/features/tags/TagSelector";
 import { TagBadge } from "@/components/features/tags/TagBadge";
 import { useTagStore } from "@/stores/tagStore";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface ArticleContentProps {
   onBack?: () => void;
@@ -140,81 +141,97 @@ export function ArticleContent({ onBack }: ArticleContentProps = {}) {
     <div className="flex flex-col h-full bg-background">
       {/* Toolbar */}
       <div className="flex items-center gap-1 px-4 py-2 border-b border-border">
-        <button
-          onClick={() => toggleStarred(article.id)}
-          className={cn(
-            "p-2 rounded-md transition-colors",
-            article.isStarred
-              ? "text-yellow-500 hover:bg-yellow-500/10"
-              : "text-muted-foreground hover:bg-muted"
-          )}
-          aria-label={article.isStarred ? "Unstar" : "Star"}
+        <Tooltip
           title={article.isStarred ? "Unstar" : "Star"}
+          content={article.isStarred ? "Remove from your starred articles." : "Add to your starred articles for quick access later."}
         >
-          <DoodleStar size="sm" />
-        </button>
+          <button
+            onClick={() => toggleStarred(article.id)}
+            className={cn(
+              "p-2 rounded-md transition-colors",
+              article.isStarred
+                ? "text-yellow-500 hover:bg-yellow-500/10"
+                : "text-muted-foreground hover:bg-muted"
+            )}
+            aria-label={article.isStarred ? "Unstar" : "Star"}
+          >
+            <DoodleStar size="sm" />
+          </button>
+        </Tooltip>
 
-        <button
-          onClick={() => toggleReadLater(article.id)}
-          className={cn(
-            "p-2 rounded-md transition-colors",
-            article.isReadLater
-              ? "text-blue-500 hover:bg-blue-500/10"
-              : "text-muted-foreground hover:bg-muted"
-          )}
-          aria-label={article.isReadLater ? "Remove from Read Later" : "Read Later"}
+        <Tooltip
           title={article.isReadLater ? "Remove from Read Later" : "Read Later"}
+          content={article.isReadLater ? "Remove from your reading queue." : "Save to your reading queue for later."}
         >
-          <DoodleClock size="sm" />
-        </button>
+          <button
+            onClick={() => toggleReadLater(article.id)}
+            className={cn(
+              "p-2 rounded-md transition-colors",
+              article.isReadLater
+                ? "text-blue-500 hover:bg-blue-500/10"
+                : "text-muted-foreground hover:bg-muted"
+            )}
+            aria-label={article.isReadLater ? "Remove from Read Later" : "Read Later"}
+          >
+            <DoodleClock size="sm" />
+          </button>
+        </Tooltip>
 
-        <button
-          onClick={handleToggleRead}
-          className="p-2 rounded-md text-muted-foreground hover:bg-muted transition-colors"
-          aria-label={article.isRead ? "Mark as unread" : "Mark as read"}
-          title={article.isRead ? "Mark as unread" : "Mark as read"}
+        <Tooltip
+          title={article.isRead ? "Mark as Unread" : "Mark as Read"}
+          content={article.isRead ? "Mark this article as unread." : "Mark this article as read."}
         >
-          {article.isRead ? (
-            <DoodleMailOpen size="sm" />
-          ) : (
-            <DoodleMail size="sm" />
-          )}
-        </button>
+          <button
+            onClick={handleToggleRead}
+            className="p-2 rounded-md text-muted-foreground hover:bg-muted transition-colors"
+            aria-label={article.isRead ? "Mark as unread" : "Mark as read"}
+          >
+            {article.isRead ? (
+              <DoodleMailOpen size="sm" />
+            ) : (
+              <DoodleMail size="sm" />
+            )}
+          </button>
+        </Tooltip>
 
-        <button
-          onClick={toggleReaderMode}
-          disabled={!article.link}
-          className={cn(
-            "p-2 rounded-md transition-colors",
-            isReaderMode
-              ? "text-accent bg-accent/10 hover:bg-accent/20"
-              : "text-muted-foreground hover:bg-muted",
-            !article.link && "opacity-50 cursor-not-allowed"
-          )}
-          aria-label={isReaderMode ? "Disable reader mode" : "Enable reader mode"}
-          title={
-            !article.link
-              ? "No article link available"
-              : isReaderMode
-              ? "Disable reader mode"
-              : "Enable reader mode"
-          }
+        <Tooltip
+          title="Readability"
+          content="Fetches the original website content for a cleaner reading experience. Use when RSS content is incomplete or hard to read."
+          side="bottom"
+          align="center"
         >
-          <DoodleBookOpen size="sm" />
-        </button>
+          <button
+            onClick={toggleReaderMode}
+            disabled={!article.link}
+            className={cn(
+              "p-2 rounded-md transition-colors",
+              isReaderMode
+                ? "text-accent bg-accent/10 hover:bg-accent/20"
+                : "text-muted-foreground hover:bg-muted",
+              !article.link && "opacity-50 cursor-not-allowed"
+            )}
+            aria-label={isReaderMode ? "Disable reader mode" : "Enable reader mode"}
+          >
+            <DoodleBookOpen size="sm" />
+          </button>
+        </Tooltip>
 
         <TagSelector articleId={article.id} />
 
         <div className="flex-1" />
 
-        <button
-          onClick={handleOpenInBrowser}
-          className="p-2 rounded-md text-muted-foreground hover:bg-muted transition-colors"
-          aria-label="Open in browser"
-          title="Open in browser"
+        <Tooltip
+          title="Open in Browser"
+          content="Open the original article in your default browser."
         >
-          <DoodleExternalLink size="sm" />
-        </button>
+          <button
+            onClick={handleOpenInBrowser}
+            className="p-2 rounded-md text-muted-foreground hover:bg-muted transition-colors"
+            aria-label="Open in browser"
+          >
+            <DoodleExternalLink size="sm" />
+          </button>
+        </Tooltip>
       </div>
 
       {/* Content */}

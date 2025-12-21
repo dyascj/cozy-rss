@@ -12,8 +12,8 @@ const spectral = Spectral({
 });
 
 export const metadata: Metadata = {
-  title: "RSS Reader",
-  description: "A clean, minimal RSS reader for macOS",
+  title: "CozyRSS",
+  description: "A calm, focused RSS reader. No ads. No algorithms. Just you and the content you choose.",
 };
 
 export default function RootLayout({

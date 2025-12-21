@@ -23,6 +23,7 @@ import { useTagStore, TAG_COLORS } from "@/stores/tagStore";
 import { TagContextMenu } from "@/components/features/tags/TagContextMenu";
 import { useDragStore, createFeedDragHandlers, createDropZoneHandlers, DragItemType } from "@/hooks/useDragAndDrop";
 import { ProfileButton } from "@/components/account/ProfileButton";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface SidebarProps {
   onFeedSelect?: () => void;
@@ -101,16 +102,21 @@ export function Sidebar({ onFeedSelect, hideHeader }: SidebarProps = {}) {
       {/* Header */}
       {!hideHeader && (
         <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/60">
-          <h1 className="font-semibold text-sm tracking-tight text-foreground truncate">Reader</h1>
+          <h1 className="font-semibold text-sm tracking-tight text-foreground truncate">CozyRSS</h1>
           <div className="flex items-center gap-2 flex-shrink-0">
             <ProfileButton />
-            <button
-              onClick={openSettingsModal}
-              className="p-1.5 rounded-md hover:bg-muted/80 transition-colors flex-shrink-0"
-              aria-label="Settings"
+            <Tooltip
+              title="Settings"
+              content="Customize your reading experience, theme, and preferences."
             >
-              <DoodleSettings size="sm" />
-            </button>
+              <button
+                onClick={openSettingsModal}
+                className="p-1.5 rounded-md hover:bg-muted/80 transition-colors flex-shrink-0"
+                aria-label="Settings"
+              >
+                <DoodleSettings size="sm" />
+              </button>
+            </Tooltip>
           </div>
         </div>
       )}
@@ -216,14 +222,18 @@ export function Sidebar({ onFeedSelect, hideHeader }: SidebarProps = {}) {
             <div className="h-px bg-border/50 my-3 mx-1" />
             <div className="flex items-center justify-between px-3 py-1.5">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tags</p>
-              <button
-                onClick={() => useUIStore.getState().openCreateTagModal()}
-                className="p-1.5 rounded hover:bg-muted/80 transition-colors flex-shrink-0"
-                aria-label="Create tag"
-                title="Create tag"
+              <Tooltip
+                title="Create Tag"
+                content="Create a new tag to organize and categorize your articles."
               >
-                <DoodlePlus size="sm" />
-              </button>
+                <button
+                  onClick={() => useUIStore.getState().openCreateTagModal()}
+                  className="p-1.5 rounded hover:bg-muted/80 transition-colors flex-shrink-0"
+                  aria-label="Create tag"
+                >
+                  <DoodlePlus size="sm" />
+                </button>
+              </Tooltip>
             </div>
             {allTags.length > 0 ? (
               allTags.map((tag) => {
@@ -272,14 +282,18 @@ export function Sidebar({ onFeedSelect, hideHeader }: SidebarProps = {}) {
             {/* Feeds Section Header */}
             <div className="flex items-center justify-between px-3 py-1.5">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Feeds</p>
-              <button
-                onClick={openCreateFolderModal}
-                className="p-1.5 rounded hover:bg-muted/80 transition-colors flex-shrink-0"
-                aria-label="Create folder"
-                title="Create folder"
+              <Tooltip
+                title="Create Folder"
+                content="Create a new folder to group and organize your feeds."
               >
-                <DoodleFolderPlus size="sm" />
-              </button>
+                <button
+                  onClick={openCreateFolderModal}
+                  className="p-1.5 rounded hover:bg-muted/80 transition-colors flex-shrink-0"
+                  aria-label="Create folder"
+                >
+                  <DoodleFolderPlus size="sm" />
+                </button>
+              </Tooltip>
             </div>
 
             {/* Folders (only root-level) */}

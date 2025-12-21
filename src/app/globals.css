@@ -4,34 +4,34 @@
 
 @layer base {
   :root {
-    /* Anthropic-inspired warm light theme */
-    --background: 250 249 240;        /* #faf9f0 - warm cream */
-    --foreground: 19 19 20;           /* #131314 - deep charcoal */
-    --muted: 243 241 232;             /* warm off-white */
-    --muted-foreground: 135 134 127;  /* #87867f - taupe/slate */
-    --accent: 130 159 123;             /* #829F7B - sage green */
+    /* Clean stone-based light theme matching landing page */
+    --background: 251 251 249;        /* #FBFBF9 - stone-50 */
+    --foreground: 28 27 24;           /* #1C1B18 - stone-900 */
+    --muted: 245 245 243;             /* #F5F5F3 - stone-100 */
+    --muted-foreground: 135 134 127;  /* #87867f - muted text */
+    --accent: 130 159 123;            /* #829F7B - sage green */
     --accent-foreground: 255 255 255;
-    --border: 228 225 213;            /* warm neutral border */
-    --sidebar-bg: 245 243 234;        /* slightly darker cream */
-    --card: 255 254 250;              /* warm white for cards */
-    --card-foreground: 19 19 20;
+    --border: 235 235 232;            /* #EBEBE8 - stone-200 */
+    --sidebar-bg: 245 245 243;        /* #F5F5F3 - stone-100 */
+    --card: 255 255 255;              /* pure white for cards */
+    --card-foreground: 28 27 24;
     --success: 76 140 74;             /* muted green */
     --warning: 199 138 61;            /* warm amber */
     --destructive: 180 82 82;         /* muted red */
   }
 
   .dark {
-    /* Anthropic-inspired warm dark theme */
-    --background: 24 23 22;           /* warm dark charcoal */
-    --foreground: 250 249 240;        /* warm cream text */
-    --muted: 38 36 34;                /* warm dark muted */
-    --muted-foreground: 156 153 145;  /* lighter taupe */
+    /* Clean stone-based dark theme */
+    --background: 28 27 24;           /* #1C1B18 - stone-900 */
+    --foreground: 251 251 249;        /* #FBFBF9 - stone-50 */
+    --muted: 45 43 38;                /* #2D2B26 - stone-800 */
+    --muted-foreground: 156 153 145;  /* lighter text */
     --accent: 152 189 143;            /* lighter sage green for dark */
-    --accent-foreground: 24 23 22;
-    --border: 52 49 46;               /* warm dark border */
-    --sidebar-bg: 30 28 26;           /* slightly lighter than bg */
-    --card: 32 30 28;                 /* warm dark cards */
-    --card-foreground: 250 249 240;
+    --accent-foreground: 28 27 24;
+    --border: 55 53 48;               /* dark border */
+    --sidebar-bg: 35 34 30;           /* slightly lighter than bg */
+    --card: 40 38 34;                 /* dark cards */
+    --card-foreground: 251 251 249;
     --success: 106 170 104;
     --warning: 219 158 81;
     --destructive: 200 102 102;
