@@ -12,8 +12,9 @@ import {
 import { FeedIcon } from "@/components/ui/FeedIcon";
 import { getAllCuratedFeeds } from "@/lib/discover/curatedFeeds";
 import { DiscoverFeed } from "@/types/discover";
+import { SystemThemeProvider } from "@/components/SystemThemeProvider";
 
-export default function OnboardingPage() {
+function OnboardingContent() {
   const router = useRouter();
   const [selectedFeeds, setSelectedFeeds] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -101,11 +102,12 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 via-stone-100/50 to-amber-50/30 relative overflow-hidden">
-      {/* Decorative background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-1/4 -right-1/4 w-[800px] h-[800px] rounded-full bg-gradient-to-br from-sage-100/40 to-sage-200/20 blur-3xl" />
-        <div className="absolute -bottom-1/4 -left-1/4 w-[600px] h-[600px] rounded-full bg-gradient-to-tr from-amber-100/30 to-stone-200/20 blur-3xl" />
+    <div className="min-h-screen bg-background text-foreground selection:bg-accent/20 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-6xl pointer-events-none opacity-40 dark:opacity-20">
+        <div className="absolute top-20 left-10 w-64 h-64 bg-accent/20 rounded-full blur-3xl" />
+        <div className="absolute top-40 right-10 w-72 h-72 bg-muted rounded-full blur-3xl" />
+        <div className="absolute bottom-40 left-1/3 w-48 h-48 bg-accent/10 rounded-full blur-3xl" />
       </div>
 
       {/* Content */}
@@ -117,18 +119,18 @@ export default function OnboardingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sage-400 to-sage-500 flex items-center justify-center text-white shadow-md shadow-sage-500/20">
-              <DoodleRss size="sm" />
-            </div>
-            <span className="text-xl font-semibold text-stone-900 tracking-tight">
-              Reader
+          <div className="flex items-center gap-2">
+            <span className="text-accent">
+              <DoodleRss size="md" />
+            </span>
+            <span className="font-semibold text-foreground tracking-tight text-lg">
+              CozyRSS
             </span>
           </div>
 
           <button
             onClick={handleSkip}
-            className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             Skip for now
           </button>
@@ -143,7 +145,7 @@ export default function OnboardingPage() {
             transition={{ delay: 0.1, duration: 0.5 }}
           >
             <motion.div
-              className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-sage-400 to-sage-500 text-white shadow-xl shadow-sage-500/25 mb-6"
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-card border border-border shadow-sm mb-6"
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{
@@ -153,13 +155,18 @@ export default function OnboardingPage() {
                 delay: 0.2,
               }}
             >
-              <DoodleSparkles size="lg" />
+              <span className="text-accent">
+                <DoodleSparkles size="xs" />
+              </span>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Let&apos;s get started
+              </span>
             </motion.div>
 
-            <h1 className="text-2xl sm:text-3xl font-bold text-stone-900 tracking-tight mb-3">
-              Welcome! Let&apos;s build your feed
+            <h1 className="text-3xl sm:text-4xl font-semibold text-foreground tracking-tight mb-3">
+              Welcome! Build your feed
             </h1>
-            <p className="text-stone-500 text-lg">
+            <p className="text-muted-foreground text-lg">
               Choose some sources to get started. You can always add more later.
             </p>
           </motion.div>
@@ -194,7 +201,7 @@ export default function OnboardingPage() {
             <button
               onClick={handleContinue}
               disabled={isSubmitting}
-              className="group flex items-center gap-2 px-8 py-4 bg-gradient-to-br from-sage-500 to-sage-600 text-white rounded-xl font-semibold text-lg shadow-xl shadow-sage-500/25 hover:shadow-2xl hover:shadow-sage-500/30 hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50"
+              className="group flex items-center gap-2 px-8 py-4 bg-accent text-accent-foreground rounded-xl font-medium text-lg hover:opacity-90 hover:shadow-lg transition-all duration-300 disabled:opacity-50"
             >
               {selectedFeeds.size > 0 ? (
                 <>
@@ -202,7 +209,7 @@ export default function OnboardingPage() {
                   {selectedFeeds.size !== 1 ? "s" : ""}
                 </>
               ) : (
-                <>Continue to Reader</>
+                <>Continue to CozyRSS</>
               )}
               <DoodleChevronRight
                 size="sm"
@@ -210,7 +217,7 @@ export default function OnboardingPage() {
               />
             </button>
 
-            <p className="text-sm text-stone-400">
+            <p className="text-sm text-muted-foreground">
               {selectedFeeds.size === 0
                 ? "You can explore feeds in the Discover section"
                 : "Great choices! You can discover more feeds anytime."}
@@ -242,18 +249,18 @@ function FeedCard({ feed, isSelected, onToggle, index }: FeedCardProps) {
       }}
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.98 }}
-      className={`relative p-4 rounded-xl border text-left transition-all ${
+      className={`relative p-4 rounded-2xl border text-left transition-all ${
         isSelected
-          ? "bg-sage-50 border-sage-300 shadow-md shadow-sage-500/10"
-          : "bg-white/60 backdrop-blur-sm border-stone-200/50 hover:bg-white hover:border-stone-300 hover:shadow-lg hover:shadow-stone-900/5"
+          ? "bg-card border-accent/30 shadow-xl shadow-foreground/5"
+          : "bg-card/60 border-border hover:bg-card hover:border-border hover:shadow-lg hover:shadow-foreground/5"
       }`}
     >
       {/* Selection indicator */}
       <div
         className={`absolute top-3 right-3 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
           isSelected
-            ? "bg-sage-500 border-sage-500 text-white"
-            : "border-stone-300 bg-white"
+            ? "bg-accent border-accent text-accent-foreground"
+            : "border-border bg-card"
         }`}
       >
         {isSelected && <DoodleCheck size="xs" />}
@@ -269,12 +276,20 @@ function FeedCard({ feed, isSelected, onToggle, index }: FeedCardProps) {
         />
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-stone-900 truncate">{feed.name}</h3>
-          <p className="text-sm text-stone-500 line-clamp-2 mt-0.5">
+          <h3 className="font-semibold text-foreground truncate">{feed.name}</h3>
+          <p className="text-sm text-muted-foreground line-clamp-2 mt-0.5">
             {feed.description}
           </p>
         </div>
       </div>
     </motion.button>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <SystemThemeProvider>
+      <OnboardingContent />
+    </SystemThemeProvider>
   );
 }

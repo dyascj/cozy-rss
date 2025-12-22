@@ -12,35 +12,38 @@ import {
   DoodleCheck,
   DoodleFolder,
   DoodleSearch,
-  DoodleRefresh,
-  DoodleSettings,
   DoodleTag,
+  DoodleSparkles,
+  DoodleArrowRight,
+  DoodleX,
+  DoodleIcon,
 } from "@/components/ui/DoodleIcon";
+import { SystemThemeProvider } from "@/components/SystemThemeProvider";
 
 const features = [
   {
     icon: <DoodleRss size="md" />,
     title: "Unified Feed",
     description:
-      "Subscribe to blogs, news sites, YouTube channels, and newsletters. All your content in one calm, chronological timeline.",
+      "Subscribe to blogs, news sites, YouTube channels, and newsletters. All in one timeline.",
   },
   {
     icon: <DoodleStar size="md" />,
     title: "Save & Star",
     description:
-      "Star articles that resonate with you. Build a personal collection of content that matters, not what algorithms want you to see.",
+      "Build a personal collection of content that matters, not what algorithms want you to see.",
   },
   {
     icon: <DoodleClock size="md" />,
     title: "Read Later",
     description:
-      "Found something interesting but no time now? Save it for later. Your reading queue, your pace.",
+      "Found something interesting but no time? Save it for later. Your reading queue, your pace.",
   },
   {
     icon: <DoodleBookOpen size="md" />,
     title: "Reader Mode",
     description:
-      "Strip away the noise. Clean, beautiful typography focused entirely on the words. No ads, no popups, no distractions.",
+      "Strip away the noise. Clean, beautiful typography focused entirely on the words.",
   },
   {
     icon: <DoodleFolder size="md" />,
@@ -52,7 +55,7 @@ const features = [
     icon: <DoodleTag size="md" />,
     title: "Tags & Filters",
     description:
-      "Tag articles across feeds. Build custom collections around topics, projects, or whatever matters to you.",
+      "Tag articles across feeds. Build custom collections around topics or projects.",
   },
   {
     icon: <DoodleSearch size="md" />,
@@ -64,35 +67,26 @@ const features = [
     icon: <DoodleCompass size="md" />,
     title: "Discover Quality",
     description:
-      "Explore our curated collection of 100+ quality feeds. From indie blogs to major publications, find new voices.",
+      "Explore our curated collection of 100+ quality feeds. Find new voices.",
   },
 ];
 
-const comparisonPoints = [
-  {
-    ours: "You decide what to read",
-    theirs: "Algorithms decide for you",
-  },
-  {
-    ours: "Chronological timeline",
-    theirs: "Engagement-optimized feed",
-  },
-  {
-    ours: "No ads or tracking",
-    theirs: "Ads between every scroll",
-  },
-  {
-    ours: "Your data stays yours",
-    theirs: "Your attention is the product",
-  },
-  {
-    ours: "Read when you want",
-    theirs: "Notifications pulling you back",
-  },
-  {
-    ours: "Calm, focused reading",
-    theirs: "Endless doomscrolling",
-  },
+const comparisonPointsOurs = [
+  "You decide what to read",
+  "Chronological timeline",
+  "No ads or tracking",
+  "Your data stays yours",
+  "Read when you want",
+  "Calm, focused reading",
+];
+
+const comparisonPointsTheirs = [
+  "Algorithms decide for you",
+  "Engagement-optimized feed",
+  "Ads between every scroll",
+  "Your attention is the product",
+  "Notifications pulling you back",
+  "Endless doomscrolling",
 ];
 
 const containerVariants = {
@@ -124,7 +118,7 @@ const fadeInVariants = {
   },
 };
 
-export default function LandingPage() {
+function LandingPageContent() {
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
@@ -148,507 +142,526 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 via-stone-100/50 to-amber-50/30 relative overflow-x-hidden">
-      {/* Decorative background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-1/4 -right-1/4 w-[1000px] h-[1000px] rounded-full bg-gradient-to-br from-sage-100/50 to-sage-200/30 blur-3xl" />
-        <div className="absolute -bottom-1/4 -left-1/4 w-[800px] h-[800px] rounded-full bg-gradient-to-tr from-amber-100/40 to-stone-200/30 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-gradient-to-r from-sage-100/20 to-transparent blur-3xl" />
-
-        {/* Grain texture */}
-        <div
-          className="absolute inset-0 opacity-[0.02]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-          }}
-        />
-      </div>
-
-      {/* Content */}
-      <div className="relative z-10 min-h-screen flex flex-col">
-        {/* Navigation */}
-        <motion.nav
-          className="flex items-center justify-between px-6 sm:px-10 py-6"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sage-400 to-sage-500 flex items-center justify-center text-white shadow-md shadow-sage-500/20">
-              <DoodleRss size="sm" />
-            </div>
-            <span className="text-xl font-semibold text-stone-900 tracking-tight">
-              Cozy Reader
+    <div className="min-h-screen bg-background text-foreground selection:bg-accent/20 overflow-x-hidden">
+      {/* Navigation */}
+      <nav className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 group">
+            <span className="text-accent">
+              <DoodleRss size="md" />
             </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Link
-              href="/signin"
-              className="px-4 py-2 text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors"
-            >
-              Sign in
+            <span className="font-semibold text-foreground tracking-tight text-lg">
+              CozyRSS
+            </span>
+          </Link>
+          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
+            <a href="#features" className="hover:text-foreground transition-colors">
+              Features
+            </a>
+            <a href="#pricing" className="hover:text-foreground transition-colors">
+              Pricing
+            </a>
+            <Link href="/signin" className="hover:text-foreground transition-colors">
+              Log in
             </Link>
             <Link
               href="/signup"
-              className="px-5 py-2.5 text-sm font-semibold bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors shadow-md shadow-stone-900/10"
+              className="bg-foreground text-background px-4 py-2 rounded-full hover:bg-accent transition-all duration-300"
             >
-              Get Started
+              Start Free
             </Link>
           </div>
-        </motion.nav>
+        </div>
+      </nav>
 
-        {/* Hero Section */}
-        <main className="flex-1">
-          <section className="flex flex-col items-center justify-center px-6 py-16 sm:py-24">
-            <motion.div
-              className="text-center max-w-4xl mx-auto"
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-            >
-              {/* Badge */}
-              <motion.div
-                variants={itemVariants}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-sage-50 border border-sage-200/60 rounded-full text-sage-700 text-sm font-medium mb-8"
-              >
-                <DoodleCompass size="xs" />
-                <span>Curate, don&apos;t doomscroll</span>
-              </motion.div>
-
-              {/* Headline */}
-              <motion.h1
-                variants={itemVariants}
-                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-stone-900 tracking-tight leading-[1.1] mb-6"
-              >
-                Break free from
-                <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-sage-500 to-sage-600">
-                  the algorithm
-                </span>
-              </motion.h1>
-
-              {/* Subheadline */}
-              <motion.p
-                variants={itemVariants}
-                className="text-lg sm:text-xl md:text-2xl text-stone-500 max-w-2xl mx-auto mb-4 leading-relaxed"
-              >
-                Take back control of what you read.
-              </motion.p>
-              <motion.p
-                variants={itemVariants}
-                className="text-base sm:text-lg text-stone-400 max-w-2xl mx-auto mb-10 leading-relaxed"
-              >
-                No ads. No algorithms. No distractions. Just you and the content
-                you actually choose to follow.
-              </motion.p>
-
-              {/* CTA Buttons */}
-              <motion.div
-                variants={itemVariants}
-                className="flex flex-col sm:flex-row items-center justify-center gap-4"
-              >
-                <Link
-                  href="/signup"
-                  className="group relative px-8 py-4 bg-gradient-to-br from-sage-500 to-sage-600 text-white rounded-xl font-semibold text-lg shadow-xl shadow-sage-500/25 hover:shadow-2xl hover:shadow-sage-500/30 hover:-translate-y-0.5 transition-all duration-300"
-                >
-                  <span className="relative z-10">Start Reading Free</span>
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-sage-400 to-sage-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </Link>
-
-                <Link
-                  href="/signin"
-                  className="px-8 py-4 text-stone-600 font-medium hover:text-stone-900 transition-colors"
-                >
-                  I already have an account
-                </Link>
-              </motion.div>
-
-              {/* Social proof */}
-              <motion.p
-                variants={itemVariants}
-                className="text-sm text-stone-400 mt-8"
-              >
-                Join readers who value their attention
-              </motion.p>
-            </motion.div>
-          </section>
-
-          {/* Mission Section */}
-          <section className="py-16 sm:py-24 px-6">
-            <motion.div
-              className="max-w-4xl mx-auto text-center"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-100px" }}
-              variants={fadeInVariants}
-            >
-              <h2 className="text-3xl sm:text-4xl font-bold text-stone-900 mb-6 tracking-tight">
-                Your attention is precious
-              </h2>
-              <p className="text-lg sm:text-xl text-stone-500 leading-relaxed max-w-3xl mx-auto">
-                Social media feeds are designed to keep you scrolling, not to
-                inform you. Every swipe is engineered to maximize engagement,
-                not value. RSS puts you back in control. You subscribe to
-                sources you trust, and they come to you in the order they were
-                published. Simple. Honest. Calm.
-              </p>
-            </motion.div>
-          </section>
-
-          {/* Comparison Section */}
-          <section className="py-16 sm:py-24 px-6 bg-white/40 backdrop-blur-sm">
-            <motion.div
-              className="max-w-4xl mx-auto"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-100px" }}
-              variants={containerVariants}
-            >
-              <motion.h2
-                variants={itemVariants}
-                className="text-3xl sm:text-4xl font-bold text-stone-900 mb-12 tracking-tight text-center"
-              >
-                A different way to read
-              </motion.h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
-                {/* Cozy Reader Column */}
-                <motion.div
-                  variants={itemVariants}
-                  className="bg-sage-50/80 border border-sage-200/60 rounded-2xl p-6 sm:p-8"
-                >
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-lg bg-sage-500 flex items-center justify-center text-white">
-                      <DoodleRss size="sm" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-sage-800">
-                      Cozy Reader
-                    </h3>
-                  </div>
-                  <ul className="space-y-4">
-                    {comparisonPoints.map((point, index) => (
-                      <li
-                        key={index}
-                        className="flex items-start gap-3 text-sage-700"
-                      >
-                        <span className="text-sage-500 mt-0.5 flex-shrink-0">
-                          <DoodleCheck size="sm" />
-                        </span>
-                        <span>{point.ours}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </motion.div>
-
-                {/* Social Media Column */}
-                <motion.div
-                  variants={itemVariants}
-                  className="bg-stone-100/80 border border-stone-200/60 rounded-2xl p-6 sm:p-8"
-                >
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-lg bg-stone-400 flex items-center justify-center text-white">
-                      <span className="text-lg">?</span>
-                    </div>
-                    <h3 className="text-lg font-semibold text-stone-600">
-                      Social Media Feeds
-                    </h3>
-                  </div>
-                  <ul className="space-y-4">
-                    {comparisonPoints.map((point, index) => (
-                      <li
-                        key={index}
-                        className="flex items-start gap-3 text-stone-500"
-                      >
-                        <span className="text-stone-400 mt-0.5 flex-shrink-0">
-                          &times;
-                        </span>
-                        <span>{point.theirs}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </motion.div>
-              </div>
-            </motion.div>
-          </section>
-
-          {/* Features Grid */}
-          <section className="py-16 sm:py-24 px-6">
-            <motion.div
-              className="max-w-6xl mx-auto"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-100px" }}
-              variants={containerVariants}
-            >
-              <motion.div variants={itemVariants} className="text-center mb-12">
-                <h2 className="text-3xl sm:text-4xl font-bold text-stone-900 mb-4 tracking-tight">
-                  Everything you need, nothing you don&apos;t
-                </h2>
-                <p className="text-lg text-stone-500 max-w-2xl mx-auto">
-                  Powerful features that help you read more intentionally,
-                  wrapped in a calm, focused interface.
-                </p>
-              </motion.div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                {features.map((feature, index) => (
-                  <motion.div
-                    key={feature.title}
-                    variants={itemVariants}
-                    custom={index}
-                    className="group p-5 sm:p-6 bg-white/60 backdrop-blur-sm rounded-xl border border-stone-200/50 hover:bg-white hover:shadow-lg hover:shadow-stone-900/5 hover:-translate-y-1 transition-all duration-300"
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-sage-50 flex items-center justify-center text-sage-600 mb-4 group-hover:bg-sage-100 transition-colors">
-                      {feature.icon}
-                    </div>
-                    <h3 className="font-semibold text-stone-900 mb-2">
-                      {feature.title}
-                    </h3>
-                    <p className="text-sm text-stone-500 leading-relaxed">
-                      {feature.description}
-                    </p>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
-          </section>
-
-          {/* Pricing Section */}
-          <section className="py-16 sm:py-24 px-6 bg-gradient-to-b from-sage-50/50 to-transparent">
-            <motion.div
-              className="max-w-4xl mx-auto"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-100px" }}
-              variants={containerVariants}
-            >
-              <motion.div variants={itemVariants} className="text-center mb-12">
-                <h2 className="text-3xl sm:text-4xl font-bold text-stone-900 mb-4 tracking-tight">
-                  Simple, honest pricing
-                </h2>
-                <p className="text-lg text-stone-500 max-w-xl mx-auto">
-                  No hidden fees. No upsells. Just one plan that includes
-                  everything.
-                </p>
-              </motion.div>
-
-              <motion.div
-                variants={itemVariants}
-                className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto"
-              >
-                {/* Monthly */}
-                <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow">
-                  <h3 className="text-lg font-semibold text-stone-900 mb-2">
-                    Monthly
-                  </h3>
-                  <div className="flex items-baseline gap-1 mb-4">
-                    <span className="text-4xl font-bold text-stone-900">$2</span>
-                    <span className="text-stone-500">/month</span>
-                  </div>
-                  <p className="text-sm text-stone-500 mb-6">
-                    Perfect for trying things out. Cancel anytime.
-                  </p>
-                  <ul className="space-y-3 mb-6">
-                    {[
-                      "Unlimited feeds",
-                      "All features included",
-                      "Priority support",
-                      "Sync across devices",
-                    ].map((item) => (
-                      <li
-                        key={item}
-                        className="flex items-center gap-2 text-sm text-stone-600"
-                      >
-                        <span className="text-sage-500">
-                          <DoodleCheck size="xs" />
-                        </span>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    href="/signup"
-                    className="block w-full py-3 px-4 text-center text-sm font-semibold text-stone-900 bg-stone-100 rounded-lg hover:bg-stone-200 transition-colors"
-                  >
-                    Get Started
-                  </Link>
-                </div>
-
-                {/* Yearly */}
-                <div className="bg-gradient-to-br from-sage-500 to-sage-600 rounded-2xl p-6 sm:p-8 shadow-lg shadow-sage-500/20 relative overflow-hidden">
-                  <div className="absolute top-4 right-4 bg-white/20 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
-                    Save 17%
-                  </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">
-                    Yearly
-                  </h3>
-                  <div className="flex items-baseline gap-1 mb-4">
-                    <span className="text-4xl font-bold text-white">$20</span>
-                    <span className="text-sage-100">/year</span>
-                  </div>
-                  <p className="text-sm text-sage-100 mb-6">
-                    Best value. That&apos;s less than $1.70/month.
-                  </p>
-                  <ul className="space-y-3 mb-6">
-                    {[
-                      "Everything in monthly",
-                      "2 months free",
-                      "Early access to new features",
-                      "Support indie development",
-                    ].map((item) => (
-                      <li
-                        key={item}
-                        className="flex items-center gap-2 text-sm text-white"
-                      >
-                        <span className="text-sage-200">
-                          <DoodleCheck size="xs" />
-                        </span>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    href="/signup"
-                    className="block w-full py-3 px-4 text-center text-sm font-semibold text-sage-600 bg-white rounded-lg hover:bg-sage-50 transition-colors"
-                  >
-                    Get Started
-                  </Link>
-                </div>
-              </motion.div>
-
-              <motion.p
-                variants={itemVariants}
-                className="text-center text-sm text-stone-400 mt-8"
-              >
-                Start with a free trial. No credit card required.
-              </motion.p>
-            </motion.div>
-          </section>
-
-          {/* How It Works */}
-          <section className="py-16 sm:py-24 px-6">
-            <motion.div
-              className="max-w-4xl mx-auto"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-100px" }}
-              variants={containerVariants}
-            >
-              <motion.div variants={itemVariants} className="text-center mb-12">
-                <h2 className="text-3xl sm:text-4xl font-bold text-stone-900 mb-4 tracking-tight">
-                  Start reading in minutes
-                </h2>
-              </motion.div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {[
-                  {
-                    step: "1",
-                    title: "Create your account",
-                    description:
-                      "Sign up in seconds. No credit card needed to start.",
-                  },
-                  {
-                    step: "2",
-                    title: "Add your feeds",
-                    description:
-                      "Subscribe to blogs, news sites, or YouTube channels. Or explore our curated collection.",
-                  },
-                  {
-                    step: "3",
-                    title: "Read at your pace",
-                    description:
-                      "Enjoy a calm, chronological feed of content you chose. No algorithms, no stress.",
-                  },
-                ].map((item, index) => (
-                  <motion.div
-                    key={item.step}
-                    variants={itemVariants}
-                    className="text-center"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-sage-100 text-sage-600 font-bold text-lg flex items-center justify-center mx-auto mb-4">
-                      {item.step}
-                    </div>
-                    <h3 className="font-semibold text-stone-900 mb-2">
-                      {item.title}
-                    </h3>
-                    <p className="text-sm text-stone-500 leading-relaxed">
-                      {item.description}
-                    </p>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
-          </section>
-
-          {/* Final CTA */}
-          <section className="py-16 sm:py-24 px-6">
-            <motion.div
-              className="max-w-3xl mx-auto text-center"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-100px" }}
-              variants={fadeInVariants}
-            >
-              <h2 className="text-3xl sm:text-4xl font-bold text-stone-900 mb-6 tracking-tight">
-                Ready to read intentionally?
-              </h2>
-              <p className="text-lg text-stone-500 mb-8 max-w-xl mx-auto">
-                Join the readers who&apos;ve taken back control of their
-                attention. Start your free trial today.
-              </p>
-              <Link
-                href="/signup"
-                className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-br from-sage-500 to-sage-600 text-white rounded-xl font-semibold text-lg shadow-xl shadow-sage-500/25 hover:shadow-2xl hover:shadow-sage-500/30 hover:-translate-y-0.5 transition-all duration-300"
-              >
-                <DoodleRss size="sm" />
-                Start Reading Free
-              </Link>
-            </motion.div>
-          </section>
-        </main>
-
-        {/* Footer */}
-        <motion.footer
-          className="py-12 px-6 border-t border-stone-200/50"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8, duration: 0.5 }}
+      {/* Hero Section */}
+      <section className="relative pt-32 pb-20 md:pt-40 md:pb-32 px-6 overflow-hidden">
+        <motion.div
+          className="max-w-4xl mx-auto text-center relative z-10"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
         >
-          <div className="max-w-6xl mx-auto">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-sage-400 to-sage-500 flex items-center justify-center text-white">
-                  <DoodleRss size="xs" />
-                </div>
-                <span className="text-sm font-medium text-stone-600">
-                  Cozy Reader
-                </span>
+          {/* Badge */}
+          <motion.div
+            variants={itemVariants}
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-card border border-border shadow-sm mb-8"
+          >
+            <span className="text-accent">
+              <DoodleSparkles size="xs" />
+            </span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Curate, don&apos;t doomscroll
+            </span>
+          </motion.div>
+
+          {/* Headline */}
+          <motion.h1
+            variants={itemVariants}
+            className="text-5xl md:text-7xl font-semibold text-foreground tracking-tight leading-[1.1] mb-6"
+          >
+            Break free from <br className="hidden md:block" />
+            <span className="text-muted-foreground italic font-serif">the algorithm</span>
+          </motion.h1>
+
+          {/* Subheadline */}
+          <motion.p
+            variants={itemVariants}
+            className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed font-light"
+          >
+            No ads. No algorithms. No distractions. Just you and the content you
+            actually choose to follow.
+          </motion.p>
+
+          {/* CTA Buttons */}
+          <motion.div
+            variants={itemVariants}
+            className="flex flex-col sm:flex-row items-center justify-center gap-4"
+          >
+            <Link
+              href="/signup"
+              className="w-full sm:w-auto px-8 py-3.5 bg-accent text-accent-foreground rounded-xl font-medium hover:opacity-90 hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
+            >
+              Start Reading Free
+              <DoodleArrowRight size="sm" />
+            </Link>
+            <Link
+              href="/signin"
+              className="w-full sm:w-auto px-8 py-3.5 bg-card text-foreground border border-border rounded-xl font-medium hover:bg-muted transition-all duration-300"
+            >
+              I already have an account
+            </Link>
+          </motion.div>
+
+          {/* Social Proof */}
+          <motion.div
+            variants={itemVariants}
+            className="mt-12 flex items-center justify-center gap-3 text-sm text-muted-foreground"
+          >
+            <div className="flex -space-x-2">
+              <div className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                JD
               </div>
-
-              <p className="text-sm text-stone-400 text-center">
-                Built with care for readers who value their time and attention.
-              </p>
-
-              <div className="flex items-center gap-6 text-sm text-stone-500">
-                <a href="#" className="hover:text-stone-900 transition-colors">
-                  Privacy
-                </a>
-                <a href="#" className="hover:text-stone-900 transition-colors">
-                  Terms
-                </a>
-                <a
-                  href="mailto:support@cozyreader.app"
-                  className="hover:text-stone-900 transition-colors"
-                >
-                  Contact
-                </a>
+              <div className="w-8 h-8 rounded-full bg-border border-2 border-background flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                AS
+              </div>
+              <div className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                MR
               </div>
             </div>
+            <p>Join readers who value their attention</p>
+          </motion.div>
+        </motion.div>
+
+        {/* Decorative background elements */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-6xl -z-10 pointer-events-none opacity-40 dark:opacity-20">
+          <div className="absolute top-20 left-10 w-64 h-64 bg-accent/20 rounded-full blur-3xl" />
+          <div className="absolute top-40 right-10 w-72 h-72 bg-muted rounded-full blur-3xl" />
+        </div>
+      </section>
+
+      {/* Manifesto / Text Section */}
+      <section className="py-24 px-6 bg-card border-y border-border">
+        <motion.div
+          className="max-w-2xl mx-auto text-center"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={fadeInVariants}
+        >
+          <h2 className="text-3xl font-semibold text-foreground tracking-tight mb-6">
+            Your attention is precious
+          </h2>
+          <div className="space-y-6 text-lg text-muted-foreground leading-relaxed font-serif">
+            <p>
+              Social media feeds are designed to keep you scrolling, not to inform
+              you. Every swipe is engineered to maximize engagement, not value.
+            </p>
+            <p>
+              <span className="text-accent font-medium italic">
+                RSS puts you back in control.
+              </span>{" "}
+              You subscribe to sources you trust, and they come to you in the order
+              they were published. Simple. Honest. Calm.
+            </p>
           </div>
-        </motion.footer>
-      </div>
+        </motion.div>
+      </section>
+
+      {/* Comparison Section */}
+      <section className="py-24 px-6 bg-background">
+        <motion.div
+          className="max-w-5xl mx-auto"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={containerVariants}
+        >
+          <motion.div variants={itemVariants} className="text-center mb-16">
+            <h2 className="text-3xl font-semibold text-foreground tracking-tight mb-4">
+              A different way to read
+            </h2>
+            <p className="text-muted-foreground">
+              Choose the environment that respects your mind.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 gap-8 items-start">
+            {/* CozyRSS Card */}
+            <motion.div
+              variants={itemVariants}
+              className="bg-card p-8 rounded-3xl shadow-xl shadow-foreground/5 border border-accent/20 relative overflow-hidden group"
+            >
+              <div className="absolute top-0 left-0 w-full h-1 bg-accent" />
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-2 bg-accent/10 rounded-lg text-accent">
+                  <DoodleBookOpen size="lg" />
+                </div>
+                <h3 className="text-xl font-semibold text-foreground">
+                  CozyRSS
+                </h3>
+              </div>
+
+              <ul className="space-y-4">
+                {comparisonPointsOurs.map((point, index) => (
+                  <li key={index} className="flex items-start gap-3">
+                    <span className="text-accent mt-0.5 shrink-0">
+                      <DoodleCheck size="sm" />
+                    </span>
+                    <span className="text-foreground/80">{point}</span>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+
+            {/* Social Media Card */}
+            <motion.div
+              variants={itemVariants}
+              className="p-8 rounded-3xl border border-border opacity-80 bg-muted/50 grayscale transition-all duration-500 hover:grayscale-0 hover:bg-card hover:opacity-100"
+            >
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-2 bg-muted rounded-lg text-muted-foreground">
+                  <DoodleIcon name="tablet" category="interface" size="lg" />
+                </div>
+                <h3 className="text-xl font-semibold text-muted-foreground">
+                  Social Media Feeds
+                </h3>
+              </div>
+
+              <ul className="space-y-4">
+                {comparisonPointsTheirs.map((point, index) => (
+                  <li key={index} className="flex items-start gap-3">
+                    <span className="text-muted-foreground/60 mt-0.5 shrink-0">
+                      <DoodleX size="sm" />
+                    </span>
+                    <span className="text-muted-foreground">{point}</span>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="py-24 px-6 bg-card">
+        <motion.div
+          className="max-w-6xl mx-auto"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={containerVariants}
+        >
+          <motion.div variants={itemVariants} className="mb-16 md:w-2/3">
+            <h2 className="text-3xl md:text-4xl font-semibold text-foreground tracking-tight mb-6">
+              Everything you need,{" "}
+              <span className="text-muted-foreground font-serif italic">
+                nothing you don&apos;t
+              </span>
+            </h2>
+            <p className="text-lg text-muted-foreground">
+              Powerful features that help you read more intentionally, wrapped in a
+              calm, focused interface.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {features.map((feature) => (
+              <motion.div
+                key={feature.title}
+                variants={itemVariants}
+                className="p-6 rounded-2xl bg-background border border-border hover:border-accent/30 transition-colors duration-300"
+              >
+                <div className="w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center text-foreground mb-4 shadow-sm">
+                  {feature.icon}
+                </div>
+                <h3 className="font-semibold text-foreground mb-2">
+                  {feature.title}
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {feature.description}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="py-24 px-6 bg-background">
+        <motion.div
+          className="max-w-4xl mx-auto"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={containerVariants}
+        >
+          <motion.div variants={itemVariants} className="text-center mb-16">
+            <h2 className="text-3xl font-semibold text-foreground tracking-tight mb-4">
+              Simple, honest pricing
+            </h2>
+            <p className="text-muted-foreground">
+              No hidden fees. No upsells. Just one plan that includes everything.
+            </p>
+          </motion.div>
+
+          <motion.div
+            variants={itemVariants}
+            className="grid md:grid-cols-2 gap-6"
+          >
+            {/* Monthly Plan */}
+            <div className="bg-card p-8 rounded-2xl border border-border flex flex-col justify-between hover:shadow-lg transition-shadow duration-300">
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium text-foreground">Monthly</h3>
+                </div>
+                <div className="flex items-baseline gap-1 mb-6">
+                  <span className="text-4xl font-semibold text-foreground">$2</span>
+                  <span className="text-muted-foreground">/month</span>
+                </div>
+                <p className="text-sm text-muted-foreground mb-8 pb-8 border-b border-border">
+                  Perfect for trying things out. Cancel anytime.
+                </p>
+                <ul className="space-y-3 mb-8">
+                  {[
+                    "Unlimited feeds",
+                    "All features included",
+                    "Priority support",
+                    "Sync across devices",
+                  ].map((item) => (
+                    <li
+                      key={item}
+                      className="flex items-center gap-3 text-sm text-foreground/80"
+                    >
+                      <span className="text-accent">
+                        <DoodleCheck size="xs" />
+                      </span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <Link
+                href="/signup"
+                className="w-full py-3 bg-muted text-foreground rounded-lg font-medium hover:bg-border transition-colors text-center"
+              >
+                Get Started
+              </Link>
+            </div>
+
+            {/* Yearly Plan */}
+            <div className="bg-foreground p-8 rounded-2xl flex flex-col justify-between shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4">
+                <span className="bg-accent/20 text-accent text-xs font-bold px-3 py-1 rounded-full border border-accent/30">
+                  Save 17%
+                </span>
+              </div>
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium text-background">Yearly</h3>
+                </div>
+                <div className="flex items-baseline gap-1 mb-6">
+                  <span className="text-4xl font-semibold text-background">$20</span>
+                  <span className="text-background/60">/year</span>
+                </div>
+                <p className="text-sm text-background/60 mb-8 pb-8 border-b border-background/20">
+                  Best value. That&apos;s less than $1.70/month.
+                </p>
+                <ul className="space-y-3 mb-8">
+                  {[
+                    "Everything in monthly",
+                    "2 months free",
+                    "Early access to new features",
+                    "Support indie development",
+                  ].map((item) => (
+                    <li
+                      key={item}
+                      className="flex items-center gap-3 text-sm text-background/80"
+                    >
+                      <span className="text-accent">
+                        <DoodleCheck size="xs" />
+                      </span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <Link
+                href="/signup"
+                className="w-full py-3 bg-accent text-accent-foreground rounded-lg font-medium hover:opacity-90 transition-colors shadow-lg text-center"
+              >
+                Get Started
+              </Link>
+            </div>
+          </motion.div>
+
+          <motion.p
+            variants={itemVariants}
+            className="text-center text-sm text-muted-foreground mt-8"
+          >
+            Start with a free trial. No credit card required.
+          </motion.p>
+        </motion.div>
+      </section>
+
+      {/* How it Works */}
+      <section className="py-24 px-6 bg-card border-t border-border">
+        <motion.div
+          className="max-w-6xl mx-auto"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={containerVariants}
+        >
+          <motion.h2
+            variants={itemVariants}
+            className="text-3xl font-semibold text-foreground tracking-tight text-center mb-16"
+          >
+            Start reading in minutes
+          </motion.h2>
+
+          <div className="grid md:grid-cols-3 gap-12 relative">
+            {/* Connector Line for Desktop */}
+            <div className="hidden md:block absolute top-12 left-0 w-full h-px bg-border z-0" />
+
+            {/* Step 1 */}
+            <motion.div variants={itemVariants} className="relative z-10">
+              <div className="w-24 h-24 bg-card rounded-2xl border border-border shadow-sm flex items-center justify-center mb-6 mx-auto md:mx-0">
+                <span className="text-3xl font-serif text-accent italic">1</span>
+              </div>
+              <h3 className="text-xl font-semibold text-foreground mb-3 text-center md:text-left">
+                Create your account
+              </h3>
+              <p className="text-muted-foreground text-center md:text-left">
+                Sign up in seconds. No credit card needed to start.
+              </p>
+            </motion.div>
+
+            {/* Step 2 */}
+            <motion.div variants={itemVariants} className="relative z-10">
+              <div className="w-24 h-24 bg-card rounded-2xl border border-border shadow-sm flex items-center justify-center mb-6 mx-auto md:mx-0">
+                <span className="text-3xl font-serif text-accent italic">2</span>
+              </div>
+              <h3 className="text-xl font-semibold text-foreground mb-3 text-center md:text-left">
+                Add your feeds
+              </h3>
+              <p className="text-muted-foreground text-center md:text-left">
+                Subscribe to blogs, news sites, or YouTube channels. Or explore our
+                curated collection.
+              </p>
+            </motion.div>
+
+            {/* Step 3 */}
+            <motion.div variants={itemVariants} className="relative z-10">
+              <div className="w-24 h-24 bg-card rounded-2xl border border-border shadow-sm flex items-center justify-center mb-6 mx-auto md:mx-0">
+                <span className="text-3xl font-serif text-accent italic">3</span>
+              </div>
+              <h3 className="text-xl font-semibold text-foreground mb-3 text-center md:text-left">
+                Read at your pace
+              </h3>
+              <p className="text-muted-foreground text-center md:text-left">
+                Enjoy a calm, chronological feed of content you chose. No
+                algorithms, no stress.
+              </p>
+            </motion.div>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-24 px-6 bg-background">
+        <motion.div
+          className="max-w-4xl mx-auto text-center"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={fadeInVariants}
+        >
+          <h2 className="text-4xl md:text-5xl font-semibold text-foreground tracking-tight mb-6">
+            Ready to read{" "}
+            <span className="font-serif italic text-muted-foreground">intentionally</span>
+            ?
+          </h2>
+          <p className="text-xl text-muted-foreground mb-10 max-w-xl mx-auto">
+            Join the readers who&apos;ve taken back control of their attention.
+            Start your free trial today.
+          </p>
+
+          <Link
+            href="/signup"
+            className="inline-block px-10 py-4 bg-foreground text-background rounded-xl font-medium text-lg hover:opacity-90 transition-all duration-300 shadow-xl"
+          >
+            Start Reading Free
+          </Link>
+        </motion.div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-card border-t border-border py-12 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="flex items-center gap-2">
+              <span className="text-accent">
+                <DoodleRss size="md" />
+              </span>
+              <span className="font-semibold text-foreground tracking-tight">
+                CozyRSS
+              </span>
+            </div>
+
+            <p className="text-sm text-muted-foreground text-center">
+              Built with care for readers who value their time and attention.
+            </p>
+
+            <div className="flex gap-6 text-sm text-muted-foreground">
+              <Link href="/privacy" className="hover:text-foreground transition-colors">
+                Privacy
+              </Link>
+              <Link href="/terms" className="hover:text-foreground transition-colors">
+                Terms
+              </Link>
+              <a
+                href="mailto:support@cozyrss.app"
+                className="hover:text-foreground transition-colors"
+              >
+                Contact
+              </a>
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground/70 text-center mt-6">
+            © {new Date().getFullYear()} Ordinary Company Group LLC
+          </p>
+        </div>
+      </footer>
     </div>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <SystemThemeProvider>
+      <LandingPageContent />
+    </SystemThemeProvider>
   );
 }

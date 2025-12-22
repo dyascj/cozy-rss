@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useArticleStore } from "@/stores/articleStore";
 
-const BASE_TITLE = "RSS Reader";
+const BASE_TITLE = "CozyRSS";
 
 export function useDocumentTitle() {
   const { articles, articlesByFeed } = useArticleStore();

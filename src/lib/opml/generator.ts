@@ -60,7 +60,7 @@ ${folderFeeds.map(generateFeedOutline).join("\n")}
   return `<?xml version="1.0" encoding="UTF-8"?>
 <opml version="2.0">
   <head>
-    <title>RSS Reader Export</title>
+    <title>CozyRSS Export</title>
     <dateCreated>${now}</dateCreated>
   </head>
   <body>
