@@ -1,6 +1,6 @@
-# Cozy RSS Reader
+# CozyRSS
 
-A full-featured, self-hosted RSS reader built with Next.js 15, featuring user accounts, SQLite database, and a beautiful three-column interface.
+A modern, full-featured RSS reader built with Next.js 16 and Supabase, featuring OAuth authentication and a beautiful three-column interface.
 
 ## Table of Contents
 
@@ -13,8 +13,6 @@ A full-featured, self-hosted RSS reader built with Next.js 15, featuring user ac
 - [State Management](#state-management)
 - [API Routes](#api-routes)
 - [Component Architecture](#component-architecture)
-- [Data Flow](#data-flow)
-- [Key Patterns](#key-patterns)
 - [Getting Started](#getting-started)
 - [Development](#development)
 
@@ -22,9 +20,9 @@ A full-featured, self-hosted RSS reader built with Next.js 15, featuring user ac
 
 ## Features
 
-- **User Accounts**: Sign up, sign in, session management
+- **OAuth Authentication**: Sign in with GitHub (Google & Microsoft ready to enable)
 - **Feed Management**: Add, organize, and delete RSS/Atom/JSON feeds
-- **Folder Organization**: Nested folders up to 3 levels deep
+- **Folder Organization**: Nested folders for feed organization
 - **Article Reading**: Clean reader mode with distraction-free viewing
 - **Article States**: Mark as read, star, save for later
 - **Tagging System**: Organize articles with custom colored tags
@@ -40,10 +38,10 @@ A full-featured, self-hosted RSS reader built with Next.js 15, featuring user ac
 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
-| **Framework** | Next.js 15 (App Router) | Full-stack React framework |
+| **Framework** | Next.js 16 (App Router) | Full-stack React framework |
 | **Language** | TypeScript | Type safety |
-| **Database** | SQLite (better-sqlite3) | Persistent data storage |
-| **Auth** | Custom session-based | User authentication |
+| **Database** | Supabase (PostgreSQL) | Managed database with RLS |
+| **Auth** | Supabase Auth (OAuth) | GitHub, Google, Microsoft |
 | **State** | Zustand | Client-side state management |
 | **Styling** | Tailwind CSS | Utility-first CSS |
 | **Animation** | Framer Motion | UI animations |
@@ -99,18 +97,27 @@ A full-featured, self-hosted RSS reader built with Next.js 15, featuring user ac
 │  │  └──────┬───────┘ └──────┬───────┘              │                     │
 │  └─────────┼────────────────┼──────────────────────┘                     │
 │            │                │                                             │
-│  ┌─────────▼────────────────▼──────────────────────┐                     │
-│  │              SQLite Database                     │                     │
-│  │  (better-sqlite3 with WAL mode)                 │                     │
-│  │  Location: ./data/rss-reader.db                 │                     │
-│  └─────────────────────────────────────────────────┘                     │
+└────────────┼────────────────┼─────────────────────────────────────────────┘
+             │                │
+┌────────────▼────────────────▼─────────────────────────────────────────────┐
+│                         SUPABASE                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐ │
+│  │                    PostgreSQL Database                                │ │
+│  │  • Row Level Security (RLS) enabled                                  │ │
+│  │  • Users can only access their own data                              │ │
+│  └─────────────────────────────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────────────────┐ │
+│  │                    Supabase Auth                                      │ │
+│  │  • OAuth providers (GitHub, Google, Microsoft)                       │ │
+│  │  • Session management via cookies                                    │ │
+│  └─────────────────────────────────────────────────────────────────────┘ │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Request Flow
 
 ```
-User Action → Component → Zustand Store → fetch() → API Route → Repository → SQLite
+User Action → Component → Zustand Store → fetch() → API Route → Repository → Supabase
                               ↓
                      Optimistic Update
                               ↓
@@ -129,17 +136,15 @@ src/
 │   ├── api/                      # API routes (REST endpoints)
 │   │   ├── auth/                 # Authentication endpoints
 │   │   │   ├── me/route.ts       # GET current user
-│   │   │   ├── signin/route.ts   # POST sign in
-│   │   │   ├── signout/route.ts  # POST sign out
-│   │   │   └── signup/route.ts   # POST create account
+│   │   │   └── signout/route.ts  # POST sign out
 │   │   ├── articles/             # Article endpoints
-│   │   │   ├── route.ts          # GET articles list
+│   │   │   ├── route.ts          # GET articles list, PATCH batch update
 │   │   │   └── [id]/
 │   │   │       ├── state/route.ts    # PUT read/star/readLater
 │   │   │       └── tags/route.ts     # PUT article tags
 │   │   ├── feeds/                # Feed CRUD
 │   │   │   ├── route.ts          # GET list, POST create
-│   │   │   └── [id]/route.ts     # PUT update, DELETE
+│   │   │   └── [id]/route.ts     # GET, PUT, DELETE
 │   │   ├── folders/              # Folder CRUD
 │   │   ├── tags/                 # Tag CRUD
 │   │   ├── settings/route.ts     # User settings
@@ -148,9 +153,11 @@ src/
 │   │   ├── discover/             # Feed discovery
 │   │   ├── migrate/route.ts      # localStorage migration
 │   │   └── export/route.ts       # Data export
+│   ├── auth/
+│   │   └── callback/route.ts     # OAuth callback handler
 │   ├── landing/page.tsx          # Public landing page
-│   ├── signin/page.tsx           # Sign in form
-│   ├── signup/page.tsx           # Sign up form
+│   ├── signin/page.tsx           # OAuth sign in
+│   ├── signup/page.tsx           # OAuth sign up
 │   ├── onboarding/page.tsx       # Post-signup flow
 │   ├── discover/page.tsx         # Feed discovery page
 │   ├── page.tsx                  # Main app (authenticated)
@@ -173,11 +180,8 @@ src/
 │   │   ├── settings/             # Settings modal
 │   │   └── search/               # Search functionality
 │   ├── ui/                       # Reusable UI components
-│   │   ├── DoodleIcon.tsx        # Custom icon components
-│   │   ├── ConfirmDialog.tsx     # Confirmation dialogs
-│   │   ├── ContextMenu.tsx       # Right-click menus
-│   │   └── ...
 │   ├── auth/                     # Auth-related components
+│   │   └── OAuthButton.tsx       # OAuth provider buttons
 │   ├── account/                  # Account management
 │   ├── StoreInitializer.tsx      # Initializes stores on mount
 │   └── ThemeProvider.tsx         # Theme context
@@ -193,29 +197,22 @@ src/
 │   └── discoverStore.ts          # Feed discovery state
 │
 ├── lib/
-│   ├── db/                       # Database layer
-│   │   ├── index.ts              # DB connection, migrations
-│   │   ├── schema.sql            # Table definitions
-│   │   ├── seed.ts               # Seed data (admin user)
+│   ├── supabase/                 # Supabase client configuration
+│   │   ├── client.ts             # Browser client
+│   │   ├── server.ts             # Server client (with cookies)
+│   │   └── middleware.ts         # Middleware session helper
+│   ├── db/
 │   │   └── repositories/         # Data access layer
 │   │       ├── articleRepository.ts
 │   │       ├── feedRepository.ts
 │   │       ├── folderRepository.ts
 │   │       ├── tagRepository.ts
 │   │       └── settingsRepository.ts
-│   ├── auth/                     # Authentication utilities
-│   │   ├── password.ts           # bcrypt hash/verify
-│   │   ├── session.ts            # Session management
+│   ├── auth/
 │   │   └── getUser.ts            # Get current user helper
 │   ├── feed-parser/              # RSS/Atom/JSON feed parsing
-│   │   └── index.ts
 │   ├── discover/                 # Feed discovery data
-│   │   ├── categories.ts         # Feed categories
-│   │   ├── curatedFeeds.ts       # Curated feed list
-│   │   └── popularSites.ts       # Popular site mappings
 │   └── opml/                     # OPML import/export
-│       ├── parser.ts
-│       └── generator.ts
 │
 ├── hooks/                        # Custom React hooks
 │   ├── useFeedRefresh.ts         # Auto-refresh feeds
@@ -231,66 +228,80 @@ src/
 │   ├── favicon.ts                # Favicon URL helpers
 │   └── video.ts                  # Video embed detection
 │
-├── types/                        # TypeScript types
-│   └── discover.ts               # Discovery types
-│
-└── middleware.ts                 # Auth middleware
+└── middleware.ts                 # Auth middleware (Supabase)
+
+supabase/
+└── migrations/                   # Database migrations
+    ├── 20241227000001_schema.sql     # Table definitions
+    └── 20241227000002_rls_policies.sql # Row Level Security
 ```
 
 ---
 
 ## Database Schema
 
-The database uses SQLite with the following entity relationships:
+The database uses Supabase PostgreSQL with Row Level Security (RLS):
 
 ```
-┌───────────────┐       ┌───────────────┐       ┌───────────────┐
-│    users      │       │   sessions    │       │ user_settings │
-├───────────────┤       ├───────────────┤       ├───────────────┤
-│ id (PK)       │◄──────│ user_id (FK)  │       │ user_id (PK,FK)│
-│ username      │       │ id (PK)       │       │ theme         │
-│ email         │       │ expires_at    │       │ font_size     │
-│ password_hash │       │ ip_address    │       │ ...settings   │
-│ created_at    │       │ user_agent    │       └───────────────┘
-│ is_admin      │       └───────────────┘
+┌───────────────┐                               ┌───────────────┐
+│  auth.users   │                               │ user_settings │
+│  (Supabase)   │                               ├───────────────┤
+├───────────────┤                               │ user_id (PK,FK)│
+│ id (PK)       │◄──────────────────────────────│ theme         │
+│ email         │                               │ font_size     │
+│ raw_user_meta │                               │ ...settings   │
+│ ...           │                               └───────────────┘
 └───────┬───────┘
         │
-        │ 1:N
+        │ Trigger: handle_new_user()
         ▼
 ┌───────────────┐       ┌───────────────┐       ┌───────────────┐
-│   folders     │       │    feeds      │       │   articles    │
+│   profiles    │       │   folders     │       │    feeds      │
 ├───────────────┤       ├───────────────┤       ├───────────────┤
-│ id (PK)       │◄──────│ folder_id(FK) │       │ id (PK)       │
-│ user_id (FK)  │       │ id (PK)       │◄──────│ feed_id (FK)  │
-│ name          │       │ user_id (FK)  │       │ guid          │
-│ parent_folder │       │ url           │       │ title         │
-│ order_index   │       │ title         │       │ link          │
-│ icon          │       │ description   │       │ content       │
-└───────────────┘       │ last_fetched  │       │ published_at  │
-        ▲               └───────────────┘       │ reader_content│
+│ id (PK,FK)    │◄──────│ user_id (FK)  │       │ id (PK)       │
+│ username      │       │ id (PK)       │◄──────│ folder_id(FK) │
+│ display_name  │       │ name          │       │ user_id (FK)  │
+│ avatar_url    │       │ parent_folder │       │ url           │
+│ is_admin      │       │ order_index   │       │ title         │
+└───────────────┘       └───────────────┘       │ last_fetched  │
         │                                       └───────┬───────┘
-        │ Self-referential                              │
-        │ (nested folders)                              │
-        └───────────────────────────────────────────────┤
-                                                        │
-┌───────────────┐       ┌───────────────┐       ┌───────▼───────┐
-│     tags      │       │ article_tags  │       │article_states │
-├───────────────┤       ├───────────────┤       ├───────────────┤
-│ id (PK)       │◄──────│ tag_id (FK)   │       │ id (PK)       │
-│ user_id (FK)  │       │ article_state │───────│ user_id (FK)  │
-│ name          │       │ _id (FK)      │       │ article_id(FK)│
-│ color         │       └───────────────┘       │ is_read       │
-└───────────────┘                               │ is_starred    │
-                                                │ is_read_later │
-                                                └───────────────┘
+        │                                               │
+        │                                               │
+        │                                       ┌───────▼───────┐
+        │                                       │   articles    │
+        │                                       ├───────────────┤
+        │                                       │ id (PK)       │
+        │                                       │ feed_id (FK)  │
+        │                                       │ guid (unique) │
+        │                                       │ title         │
+        │                                       │ content       │
+        │                                       │ published_at  │
+        │                                       └───────┬───────┘
+        │                                               │
+        │       ┌───────────────┐       ┌───────────────▼───────┐
+        │       │     tags      │       │   article_states      │
+        │       ├───────────────┤       ├───────────────────────┤
+        └──────►│ user_id (FK)  │       │ id (PK)               │
+                │ id (PK)       │◄──────│ user_id (FK)          │
+                │ name          │       │ article_id (FK)       │
+                │ color         │       │ is_read               │
+                └───────┬───────┘       │ is_starred            │
+                        │               │ is_read_later         │
+                        ▼               └───────────────────────┘
+                ┌───────────────┐
+                │ article_tags  │
+                ├───────────────┤
+                │ tag_id (FK)   │
+                │ article_state │
+                │ _id (FK)      │
+                └───────────────┘
 ```
 
 ### Key Tables
 
 | Table | Purpose |
 |-------|---------|
-| `users` | User accounts with hashed passwords |
-| `sessions` | Active login sessions (30-day expiry) |
+| `profiles` | User profiles (linked to Supabase auth.users) |
 | `folders` | Feed folders with nesting support |
 | `feeds` | RSS feed subscriptions |
 | `articles` | Fetched article content |
@@ -298,75 +309,75 @@ The database uses SQLite with the following entity relationships:
 | `tags` | User-defined tags |
 | `article_tags` | Junction table for article-tag relationships |
 | `user_settings` | User preferences |
-| `opml_imports` | OPML import history |
+
+### Row Level Security (RLS)
+
+All tables have RLS enabled. Users can only access their own data:
+
+```sql
+-- Example policy
+CREATE POLICY "Users can view own feeds"
+  ON public.feeds FOR SELECT
+  USING (auth.uid() = user_id);
+```
 
 ---
 
 ## Authentication System
 
-### Flow Diagram
+### OAuth Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     AUTHENTICATION FLOW                          │
+│                     OAUTH AUTHENTICATION FLOW                     │
 └─────────────────────────────────────────────────────────────────┘
 
-SIGN UP:
-┌──────────┐     POST /api/auth/signup     ┌───────────────────────┐
-│  User    │ ─────────────────────────────►│ Create user record    │
-│  Form    │  {username, password}         │ Hash password (bcrypt)│
-└──────────┘                               │ Create session        │
-                                           │ Set httpOnly cookie   │
-                                           └───────────────────────┘
-
-SIGN IN:
-┌──────────┐     POST /api/auth/signin     ┌───────────────────────┐
-│  User    │ ─────────────────────────────►│ Find user by username │
-│  Form    │  {username, password}         │ Verify password hash  │
-└──────────┘                               │ Create new session    │
-                                           │ Set httpOnly cookie   │
-                                           └───────────────────────┘
+1. User clicks "Continue with GitHub"
+        │
+        ▼
+2. Supabase redirects to GitHub OAuth
+   └── User authorizes the app
+        │
+        ▼
+3. GitHub redirects to callback URL
+   └── /auth/callback?code=xxx
+        │
+        ▼
+4. Callback route exchanges code for session
+   └── supabase.auth.exchangeCodeForSession(code)
+        │
+        ▼
+5. Supabase creates session cookies
+   └── Session stored in httpOnly cookies
+        │
+        ▼
+6. User redirected to app
+   └── Trigger creates profile if new user
 
 SESSION VALIDATION (Every API Request):
-┌──────────┐     Cookie: session=xxx       ┌───────────────────────┐
-│  Client  │ ─────────────────────────────►│ Extract session ID    │
-│  Request │                               │ Check expiry in DB    │
-└──────────┘                               │ Return user or 401    │
-                                           └───────────────────────┘
-
-MIDDLEWARE (Route Protection):
 ┌──────────┐                               ┌───────────────────────┐
-│ Incoming │ ─────────────────────────────►│ Check cookie exists   │
-│ Request  │                               │ (No DB call)          │
-└──────────┘                               │                       │
-     │                                     │ Has cookie? → Allow   │
-     │                                     │ No cookie?  → Redirect│
-     ▼                                     │ to /landing           │
-┌──────────┐                               └───────────────────────┘
-│Protected │ Actual session validation
-│API Route │ happens in route handler
-└──────────┘
+│  Client  │     Cookies (automatic)       │ Supabase Server Client│
+│  Request │ ─────────────────────────────►│ supabase.auth.getUser()│
+└──────────┘                               │ Returns user or null   │
+                                           └───────────────────────┘
 ```
 
 ### Key Files
 
-- `src/lib/auth/password.ts` - bcrypt hashing (12 rounds)
-- `src/lib/auth/session.ts` - Session CRUD, user queries
-- `src/lib/auth/getUser.ts` - Helper to get current user from cookie
-- `src/middleware.ts` - Route protection (cookie check only)
+- `src/lib/supabase/client.ts` - Browser Supabase client
+- `src/lib/supabase/server.ts` - Server Supabase client (handles cookies)
+- `src/lib/supabase/middleware.ts` - Session validation for middleware
+- `src/lib/auth/getUser.ts` - Helper to get current user
+- `src/app/auth/callback/route.ts` - OAuth callback handler
+- `src/middleware.ts` - Route protection
 
-### Session Cookie
+### OAuth Providers
 
-```typescript
-// Set on login/signup
-cookies().set("session", sessionId, {
-  httpOnly: true,      // Not accessible via JavaScript
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax",
-  maxAge: 30 * 24 * 60 * 60,  // 30 days
-  path: "/",
-});
-```
+| Provider | Status |
+|----------|--------|
+| GitHub | Enabled |
+| Google | Ready (uncomment in signin/signup) |
+| Microsoft | Ready (uncomment in signin/signup) |
 
 ---
 
@@ -376,7 +387,6 @@ The app uses **Zustand** for client-side state. Each store follows a pattern:
 
 ```typescript
 interface StoreState {
-  // Data
   items: Record<string, Item>;
   isLoading: boolean;
   isInitialized: boolean;
@@ -396,7 +406,7 @@ interface StoreActions {
 
 | Store | Purpose | Persistence |
 |-------|---------|-------------|
-| `authStore` | User session state | API-backed |
+| `authStore` | User session state | Supabase Auth |
 | `feedStore` | Feeds and folders | API-backed |
 | `articleStore` | Articles and states | API-backed |
 | `tagStore` | User tags | API-backed |
@@ -405,57 +415,25 @@ interface StoreActions {
 | `searchStore` | Search query/results | Local only |
 | `discoverStore` | Feed discovery state | Local only |
 
-### Store Initialization
-
-Stores are initialized via `StoreInitializer.tsx` which runs on app mount:
-
-```typescript
-// src/components/StoreInitializer.tsx
-export function StoreInitializer({ children }) {
-  const { checkSession } = useAuthStore();
-  const { initialize: initFeeds } = useFeedStore();
-  const { initialize: initArticles } = useArticleStore();
-  // ...
-
-  useEffect(() => {
-    async function init() {
-      await checkSession();  // Validates session with API
-      if (isAuthenticated) {
-        await Promise.all([
-          initFeeds(),
-          initArticles(),
-          initTags(),
-          initSettings(),
-        ]);
-      }
-    }
-    init();
-  }, [isAuthenticated]);
-}
-```
-
 ### Optimistic Updates Pattern
 
 ```typescript
-// Example: Marking article as read
-markAsRead: async (articleId: string, article: Article) => {
+markAsRead: async (articleId: string) => {
   // 1. Optimistic update - UI updates immediately
   set((state) => ({
-    readStatus: { ...state.readStatus, [articleId]: true },
+    articles: { ...state.articles, [articleId]: { ...article, isRead: true } },
   }));
 
   try {
     // 2. API call
-    const res = await fetch(`/api/articles/${articleId}/state`, {
+    await fetch(`/api/articles/${articleId}/state`, {
       method: "PUT",
       body: JSON.stringify({ isRead: true, article }),
     });
-
-    if (!res.ok) throw new Error("Failed");
   } catch {
     // 3. Rollback on failure
     set((state) => ({
-      readStatus: { ...state.readStatus, [articleId]: false },
+      articles: { ...state.articles, [articleId]: { ...article, isRead: false } },
     }));
   }
 };
@@ -471,10 +449,8 @@ All API routes are under `/api/*` and follow REST conventions.
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| POST | `/api/auth/signup` | Create new account |
-| POST | `/api/auth/signin` | Login, create session |
-| POST | `/api/auth/signout` | Logout, delete session |
 | GET | `/api/auth/me` | Get current user |
+| POST | `/api/auth/signout` | Logout |
 
 ### Feeds
 
@@ -482,34 +458,18 @@ All API routes are under `/api/*` and follow REST conventions.
 |--------|----------|---------|
 | GET | `/api/feeds` | List all feeds with folders |
 | POST | `/api/feeds` | Subscribe to new feed |
-| PUT | `/api/feeds/[id]` | Update feed (title, folder) |
+| GET | `/api/feeds/[id]` | Get single feed |
+| PUT | `/api/feeds/[id]` | Update feed |
 | DELETE | `/api/feeds/[id]` | Unsubscribe from feed |
-
-### Folders
-
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| GET | `/api/folders` | List all folders |
-| POST | `/api/folders` | Create folder |
-| PUT | `/api/folders/[id]` | Rename/move folder |
-| DELETE | `/api/folders/[id]` | Delete folder |
 
 ### Articles
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | GET | `/api/articles` | List articles (with filters) |
+| PATCH | `/api/articles` | Batch update article states |
 | PUT | `/api/articles/[id]/state` | Update read/star/readLater |
 | PUT | `/api/articles/[id]/tags` | Update article tags |
-
-### Tags
-
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| GET | `/api/tags` | List all tags |
-| POST | `/api/tags` | Create tag |
-| PUT | `/api/tags/[id]` | Update tag |
-| DELETE | `/api/tags/[id]` | Delete tag |
 
 ### Other
 
@@ -517,45 +477,8 @@ All API routes are under `/api/*` and follow REST conventions.
 |--------|----------|---------|
 | GET | `/api/fetch-feed?url=` | Proxy for fetching RSS feeds |
 | POST | `/api/extract-article` | Extract article content (reader mode) |
-| GET | `/api/settings` | Get user settings |
-| PUT | `/api/settings` | Update user settings |
+| GET/PUT | `/api/settings` | User settings |
 | GET | `/api/export` | Export all user data |
-| POST | `/api/migrate` | Import localStorage data |
-
-### API Route Pattern
-
-```typescript
-// src/app/api/feeds/route.ts
-import { getCurrentUser } from "@/lib/auth/getUser";
-import * as feedRepo from "@/lib/db/repositories/feedRepository";
-
-export async function GET() {
-  // 1. Check authentication
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  // 2. Call repository
-  const feeds = feedRepo.getFeedsByUser(user.id);
-  const folders = feedRepo.getFoldersByUser(user.id);
-
-  // 3. Return response
-  return NextResponse.json({ feeds, folders });
-}
-
-export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const body = await request.json();
-  const feed = feedRepo.createFeed(user.id, body);
-
-  return NextResponse.json({ feed }, { status: 201 });
-}
-```
 
 ---
 
@@ -573,8 +496,7 @@ ThreeColumnLayout
 │   └── AddFeedModal
 ├── ArticleList (article titles/previews)
 │   ├── ViewModeSelector (list/magazine/title)
-│   ├── ArticleCard | ArticleMagazineItem | ArticleTitleItem
-│   └── QuickActions (swipe actions)
+│   └── ArticleCard | ArticleMagazineItem | ArticleTitleItem
 └── ArticleContent (article reader)
     ├── Article header
     ├── Article body (sanitized HTML)
@@ -583,186 +505,9 @@ ThreeColumnLayout
 
 ### Responsive Behavior
 
-```typescript
-// ThreeColumnLayout.tsx
-const MOBILE_BREAKPOINT = 768;   // < 768px = mobile
-const TABLET_BREAKPOINT = 1024;  // 768-1024px = tablet
-
-// Mobile: Single panel with bottom tab bar
-// Tablet: 2 columns with slide-out sidebar
-// Desktop: 3 columns with resizable dividers
-```
-
-### Component Pattern
-
-```typescript
-// Feature component pattern
-export function FeedCard({ feed }: { feed: Feed }) {
-  // 1. Get stores
-  const { removeFeed, updateFeed } = useFeedStore();
-  const { setSelectedFeed } = useUIStore();
-
-  // 2. Local state for UI
-  const [isEditing, setIsEditing] = useState(false);
-
-  // 3. Event handlers call store actions
-  const handleDelete = async () => {
-    await removeFeed(feed.id);
-  };
-
-  // 4. Render
-  return (
-    <div onClick={() => setSelectedFeed(feed.id)}>
-      {/* ... */}
-    </div>
-  );
-}
-```
-
----
-
-## Data Flow
-
-### Adding a New Feed
-
-```
-1. User enters URL in AddFeedModal
-        │
-        ▼
-2. Component calls fetchAndParseFeed(url)
-   └── Calls /api/fetch-feed?url=xxx (proxied fetch)
-   └── Parses RSS/Atom/JSON feed
-   └── Returns { title, description, items }
-        │
-        ▼
-3. User confirms, component calls feedStore.addFeed()
-        │
-        ▼
-4. Store makes POST /api/feeds
-   └── API creates feed in database
-   └── Returns created feed
-        │
-        ▼
-5. Store updates local state
-        │
-        ▼
-6. UI re-renders with new feed in sidebar
-```
-
-### Reading an Article
-
-```
-1. User clicks article in ArticleList
-        │
-        ▼
-2. uiStore.setSelectedArticleId(id)
-        │
-        ▼
-3. ArticleContent renders article
-        │
-        ▼
-4. If markAsReadOnSelect setting is true:
-   └── articleStore.markAsRead(articleId, articleData)
-        │
-        ▼
-5. Store optimistically updates readStatus
-   └── UI shows article as read
-        │
-        ▼
-6. API call PUT /api/articles/[id]/state
-   └── Creates article in DB if needed (via ensureArticleExists)
-   └── Creates/updates article_state record
-        │
-        ▼
-7. On success: state confirmed
-   On failure: rollback readStatus
-```
-
-### Fetching Feed Articles
-
-```
-1. Feed is selected in sidebar
-        │
-        ▼
-2. useFeedRefresh hook triggers
-        │
-        ▼
-3. fetchAndParseFeed(feed.url) called
-   └── /api/fetch-feed proxies the request
-   └── Parses XML/JSON response
-        │
-        ▼
-4. Articles stored in articleStore.articlesByFeed
-   └── No database storage for articles until state changes!
-   └── Articles are fetched fresh each time
-        │
-        ▼
-5. When user stars/reads article:
-   └── Article saved to DB via ensureArticleExists()
-   └── article_state created
-```
-
----
-
-## Key Patterns
-
-### Repository Pattern
-
-All database access goes through repository functions:
-
-```typescript
-// src/lib/db/repositories/feedRepository.ts
-export function getFeedsByUser(userId: string): Feed[] {
-  const db = getDb();
-  const rows = db.prepare(`
-    SELECT * FROM feeds WHERE user_id = ?
-  `).all(userId);
-  return rows.map(rowToFeed);
-}
-```
-
-### Authentication Guard
-
-Every API route checks authentication:
-
-```typescript
-const user = await getCurrentUser();
-if (!user) {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
-```
-
-### Store Reset on Logout
-
-All stores have a `reset()` method called on logout:
-
-```typescript
-// authStore.ts
-signOut: async () => {
-  await fetch("/api/auth/signout", { method: "POST" });
-  useFeedStore.getState().reset();
-  useArticleStore.getState().reset();
-  useTagStore.getState().reset();
-  useSettingsStore.getState().reset();
-  set({ user: null, isAuthenticated: false });
-};
-```
-
-### HTML Sanitization
-
-All article content is sanitized before rendering:
-
-```typescript
-// src/utils/sanitize.ts
-import DOMPurify from "dompurify";
-
-export function sanitizeHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ADD_TAGS: ["iframe"],
-    ADD_ATTR: ["target", "allowfullscreen"],
-  });
-}
-```
+- **Mobile** (< 768px): Single panel with bottom tab bar
+- **Tablet** (768-1024px): 2 columns with slide-out sidebar
+- **Desktop** (> 1024px): 3 columns with resizable dividers
 
 ---
 
@@ -771,36 +516,48 @@ export function sanitizeHtml(html: string): string {
 ### Prerequisites
 
 - Node.js 18+
-- npm or yarn
+- A Supabase project ([create one here](https://supabase.com))
 
-### Installation
+### 1. Clone and Install
 
 ```bash
-# Clone the repository
 git clone https://github.com/dyascj/cozy-rss.git
 cd cozy-rss
-
-# Install dependencies
 npm install
-
-# Create default admin user (optional)
-npm run db:seed
-# Creates: username "admin", password "admin"
-
-# Start development server
-npm run dev
 ```
 
-### Environment Variables
+### 2. Set Up Supabase
 
-Create `.env.local` for custom configuration:
+1. Create a new project at [supabase.com](https://supabase.com)
+
+2. Run the database migrations in the SQL Editor:
+   - `supabase/migrations/20241227000001_schema.sql`
+   - `supabase/migrations/20241227000002_rls_policies.sql`
+
+3. Configure OAuth provider (GitHub):
+   - Go to Authentication → Providers → GitHub
+   - Create OAuth app at [github.com/settings/developers](https://github.com/settings/developers)
+   - Set callback URL: `https://<your-project>.supabase.co/auth/v1/callback`
+
+4. Set Site URL:
+   - Go to Authentication → URL Configuration
+   - Set Site URL to `http://localhost:3000` (or your domain)
+
+### 3. Configure Environment
+
+Create `.env.local`:
 
 ```bash
-# Optional: Custom database location
-DATABASE_PATH=/path/to/rss-reader.db
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
 
-# Optional: Custom session duration (ms)
-SESSION_DURATION_MS=2592000000  # 30 days
+### 4. Run the App
+
+```bash
+npm run dev
+# Opens http://localhost:3000
 ```
 
 ---
@@ -811,28 +568,6 @@ SESSION_DURATION_MS=2592000000  # 30 days
 
 ```bash
 npm run dev
-# Opens http://localhost:3000
-```
-
-### Database
-
-The SQLite database is created automatically at `./data/rss-reader.db`.
-
-```bash
-# Reset database (delete and recreate)
-rm -rf data/rss-reader.db
-npm run dev  # Migrations run on first connection
-
-# Create seed data
-npm run db:seed
-```
-
-### Testing
-
-```bash
-npm test          # Run tests in watch mode
-npm run test:run  # Run tests once
-npm run test:coverage  # With coverage
 ```
 
 ### Build for Production
@@ -853,6 +588,15 @@ npx tsc --noEmit
 ```bash
 npm run lint
 ```
+
+### Adding OAuth Providers
+
+To enable Google or Microsoft OAuth:
+
+1. Configure the provider in Supabase Dashboard
+2. Uncomment the provider buttons in:
+   - `src/app/signin/page.tsx`
+   - `src/app/signup/page.tsx`
 
 ---
 
