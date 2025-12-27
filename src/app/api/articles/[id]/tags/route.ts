@@ -46,6 +46,19 @@ export async function PUT(
       );
     }
 
+    // Verify all tags belong to the user
+    if (tagIds.length > 0) {
+      for (const tagId of tagIds) {
+        const tag = await tagRepo.getTagById(tagId, user.id);
+        if (!tag) {
+          return NextResponse.json(
+            { error: "One or more tags not found or access denied" },
+            { status: 404 }
+          );
+        }
+      }
+    }
+
     await tagRepo.setArticleTags(id, user.id, tagIds);
     const tags = await tagRepo.getArticleTags(id, user.id);
 

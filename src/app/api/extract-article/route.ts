@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
+import { getCurrentUser } from "@/lib/auth/getUser";
+import { validateUrlForSSRF } from "@/lib/security/ssrf";
 
 export interface ExtractedArticle {
   title: string;
@@ -27,11 +29,28 @@ type ExtractResponse = ExtractSuccessResponse | ExtractErrorResponse;
 export async function GET(
   request: NextRequest
 ): Promise<NextResponse<ExtractResponse>> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized", code: "INVALID_URL" },
+      { status: 401 }
+    );
+  }
+
   const url = request.nextUrl.searchParams.get("url");
 
   if (!url) {
     return NextResponse.json(
       { success: false, error: "URL parameter is required", code: "INVALID_URL" },
+      { status: 400 }
+    );
+  }
+
+  // Validate URL for SSRF
+  const ssrfError = validateUrlForSSRF(url);
+  if (ssrfError) {
+    return NextResponse.json(
+      { success: false, error: ssrfError, code: "INVALID_URL" },
       { status: 400 }
     );
   }

@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth/getUser";
+import { validateUrlForSSRF } from "@/lib/security/ssrf";
 
 export async function GET(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const feedUrl = request.nextUrl.searchParams.get("url");
 
   if (!feedUrl) {
@@ -8,6 +15,12 @@ export async function GET(request: NextRequest) {
       { error: "URL parameter required" },
       { status: 400 }
     );
+  }
+
+  // Validate URL for SSRF
+  const ssrfError = validateUrlForSSRF(feedUrl);
+  if (ssrfError) {
+    return NextResponse.json({ error: ssrfError }, { status: 400 });
   }
 
   try {
@@ -58,7 +71,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Feed fetch error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch feed" },
+      { error: "Failed to fetch feed" },
       { status: 500 }
     );
   }

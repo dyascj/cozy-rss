@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DiscoverFeed, DiscoverSearchResponse } from "@/types/discover";
-import { searchCuratedFeeds, getAllCuratedFeeds } from "@/lib/discover/curatedFeeds";
+import { searchCuratedFeeds } from "@/lib/discover/curatedFeeds";
 import { RSSHUB_ROUTES, rsshubRoutesToFeeds } from "@/lib/discover/rsshub";
 import { DiscoverCategory } from "@/types/discover";
+import { getCurrentUser } from "@/lib/auth/getUser";
 
 export async function GET(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const query = request.nextUrl.searchParams.get("q");
   const category = request.nextUrl.searchParams.get("category") as DiscoverCategory | null;
   const limit = parseInt(request.nextUrl.searchParams.get("limit") || "20");

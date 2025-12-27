@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { DiscoverCategory, DiscoverFeed } from "@/types/discover";
 import { getCuratedFeedsForCategory } from "@/lib/discover/curatedFeeds";
 import { getRSSHubFeedsForCategory } from "@/lib/discover/rsshub";
+import { getCurrentUser } from "@/lib/auth/getUser";
 
 export async function GET(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const category = request.nextUrl.searchParams.get("category") as DiscoverCategory | null;
   const page = parseInt(request.nextUrl.searchParams.get("page") || "1");
   const limit = parseInt(request.nextUrl.searchParams.get("limit") || "20");

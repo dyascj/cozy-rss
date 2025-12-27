@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Parser from "rss-parser";
 import { PreviewArticle, FeedPreviewResponse } from "@/types/discover";
+import { getCurrentUser } from "@/lib/auth/getUser";
+import { validateUrlForSSRF } from "@/lib/security/ssrf";
 
 const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|gif|webp|avif|svg)(\?.*)?$/i;
 
@@ -165,6 +167,11 @@ const rssParser = new Parser({
 });
 
 export async function GET(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const feedUrl = request.nextUrl.searchParams.get("url");
   const limit = parseInt(request.nextUrl.searchParams.get("limit") || "5");
 
@@ -173,6 +180,12 @@ export async function GET(request: NextRequest) {
       { error: "URL parameter required" },
       { status: 400 }
     );
+  }
+
+  // Validate URL for SSRF
+  const ssrfError = validateUrlForSSRF(feedUrl);
+  if (ssrfError) {
+    return NextResponse.json({ error: ssrfError }, { status: 400 });
   }
 
   try {
@@ -311,7 +324,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Preview fetch error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch preview" },
+      { error: "Failed to fetch preview" },
       { status: 500 }
     );
   }

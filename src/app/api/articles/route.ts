@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/getUser";
 import * as articleRepo from "@/lib/db/repositories/articleRepository";
+import * as feedRepo from "@/lib/db/repositories/feedRepository";
 
 /**
  * PATCH /api/articles
@@ -82,6 +83,14 @@ export async function GET(request: NextRequest) {
     let articles;
 
     if (feedId) {
+      // Verify feed ownership before fetching articles
+      const feed = await feedRepo.getFeedById(feedId, user.id);
+      if (!feed) {
+        return NextResponse.json(
+          { error: "Feed not found or access denied" },
+          { status: 404 }
+        );
+      }
       articles = await articleRepo.getArticlesByFeed(feedId, user.id, limit);
     } else {
       articles = await articleRepo.getArticlesByUser(user.id, {

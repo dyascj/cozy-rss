@@ -38,6 +38,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify parent folder ownership if provided
+    if (parentFolderId) {
+      const parentFolder = await folderRepo.getFolderById(parentFolderId, user.id);
+      if (!parentFolder) {
+        return NextResponse.json(
+          { error: "Parent folder not found or access denied" },
+          { status: 404 }
+        );
+      }
+    }
+
     const folder = await folderRepo.createFolder(user.id, {
       name,
       icon,

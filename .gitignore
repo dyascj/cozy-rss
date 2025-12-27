@@ -46,3 +46,4 @@ coverage/
 *.tsbuildinfo
 next-env.d.ts
 *.png
+supabase/.temp/

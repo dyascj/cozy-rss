@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth/getUser";
+import { validateUrlForSSRF } from "@/lib/security/ssrf";
 
 const USER_AGENT = "Mozilla/5.0 (compatible; RSSReader/1.0; +https://github.com/)";
 
@@ -129,6 +131,11 @@ function extractFeedLinksFromHtml(html: string, baseUrl: string): string[] {
 }
 
 export async function GET(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const url = request.nextUrl.searchParams.get("url");
 
   if (!url) {
@@ -136,6 +143,12 @@ export async function GET(request: NextRequest) {
       { error: "URL parameter required" },
       { status: 400 }
     );
+  }
+
+  // Validate URL for SSRF
+  const ssrfError = validateUrlForSSRF(url);
+  if (ssrfError) {
+    return NextResponse.json({ error: ssrfError }, { status: 400 });
   }
 
   try {
@@ -227,7 +240,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to discover feed",
+        error: "Failed to discover feed",
       },
       { status: 500 }
     );
