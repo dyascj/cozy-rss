@@ -9,7 +9,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const folders = folderRepo.getFoldersByUser(user.id);
+    const folders = await folderRepo.getFoldersByUser(user.id);
 
     return NextResponse.json({ folders });
   } catch (error) {
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const folder = folderRepo.createFolder(user.id, {
+    const folder = await folderRepo.createFolder(user.id, {
       name,
       icon,
       parentFolderId,

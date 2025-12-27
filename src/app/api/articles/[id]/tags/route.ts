@@ -13,7 +13,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const tags = tagRepo.getArticleTags(id, user.id);
+    const tags = await tagRepo.getArticleTags(id, user.id);
 
     return NextResponse.json({ tags });
   } catch (error) {
@@ -46,8 +46,8 @@ export async function PUT(
       );
     }
 
-    tagRepo.setArticleTags(id, user.id, tagIds);
-    const tags = tagRepo.getArticleTags(id, user.id);
+    await tagRepo.setArticleTags(id, user.id, tagIds);
+    const tags = await tagRepo.getArticleTags(id, user.id);
 
     return NextResponse.json({ tags });
   } catch (error) {

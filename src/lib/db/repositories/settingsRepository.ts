@@ -1,4 +1,4 @@
-import { getDb, UserSettingsRow } from "../index";
+import { createClient } from "@/lib/supabase/server";
 
 export interface UserSettings {
   theme: "light" | "dark" | "system";
@@ -16,21 +16,38 @@ export interface UserSettings {
   uiReaderModeEnabled: boolean;
 }
 
+interface UserSettingsRow {
+  theme: string;
+  font_size: string;
+  mark_as_read_on_select: boolean;
+  default_refresh_interval: number;
+  max_articles_per_feed: number;
+  compact_mode: boolean;
+  swipe_enabled: boolean;
+  swipe_left_action: string;
+  swipe_right_action: string;
+  ui_sidebar_width: number;
+  ui_article_list_width: number;
+  ui_article_layout: string;
+  ui_reader_mode_enabled: boolean;
+}
+
 function rowToSettings(row: UserSettingsRow): UserSettings {
   return {
     theme: row.theme as UserSettings["theme"],
     fontSize: row.font_size as UserSettings["fontSize"],
-    markAsReadOnSelect: row.mark_as_read_on_select === 1,
+    markAsReadOnSelect: row.mark_as_read_on_select,
     defaultRefreshInterval: row.default_refresh_interval,
     maxArticlesPerFeed: row.max_articles_per_feed,
-    compactMode: row.compact_mode === 1,
-    swipeEnabled: row.swipe_enabled === 1,
+    compactMode: row.compact_mode,
+    swipeEnabled: row.swipe_enabled,
     swipeLeftAction: row.swipe_left_action as UserSettings["swipeLeftAction"],
-    swipeRightAction: row.swipe_right_action as UserSettings["swipeRightAction"],
+    swipeRightAction:
+      row.swipe_right_action as UserSettings["swipeRightAction"],
     uiSidebarWidth: row.ui_sidebar_width,
     uiArticleListWidth: row.ui_article_list_width,
     uiArticleLayout: row.ui_article_layout as UserSettings["uiArticleLayout"],
-    uiReaderModeEnabled: row.ui_reader_mode_enabled === 1,
+    uiReaderModeEnabled: row.ui_reader_mode_enabled,
   };
 }
 
@@ -50,97 +67,75 @@ const defaultSettings: UserSettings = {
   uiReaderModeEnabled: false,
 };
 
-export function getUserSettings(userId: string): UserSettings {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT * FROM user_settings WHERE user_id = ?")
-    .get(userId) as UserSettingsRow | undefined;
+export async function getUserSettings(userId: string): Promise<UserSettings> {
+  const supabase = await createClient();
 
-  if (!row) {
-    // Create default settings
-    db.prepare("INSERT INTO user_settings (user_id) VALUES (?)").run(userId);
-    return { ...defaultSettings };
+  const { data, error } = await supabase
+    .from("user_settings")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") {
+      // No settings found, create default
+      await supabase.from("user_settings").insert({ user_id: userId });
+      return { ...defaultSettings };
+    }
+    throw error;
   }
 
-  return rowToSettings(row);
+  return rowToSettings(data);
 }
 
-export function updateUserSettings(
+export async function updateUserSettings(
   userId: string,
   data: Partial<UserSettings>
-): UserSettings {
-  const db = getDb();
+): Promise<UserSettings> {
+  const supabase = await createClient();
 
   // Ensure settings exist
-  const existing = db
-    .prepare("SELECT 1 FROM user_settings WHERE user_id = ?")
-    .get(userId);
+  const { data: existing } = await supabase
+    .from("user_settings")
+    .select("user_id")
+    .eq("user_id", userId)
+    .single();
 
   if (!existing) {
-    db.prepare("INSERT INTO user_settings (user_id) VALUES (?)").run(userId);
+    await supabase.from("user_settings").insert({ user_id: userId });
   }
 
-  const updates: string[] = [];
-  const values: (string | number)[] = [];
+  const updateData: Record<string, unknown> = {};
 
-  if (data.theme !== undefined) {
-    updates.push("theme = ?");
-    values.push(data.theme);
-  }
-  if (data.fontSize !== undefined) {
-    updates.push("font_size = ?");
-    values.push(data.fontSize);
-  }
-  if (data.markAsReadOnSelect !== undefined) {
-    updates.push("mark_as_read_on_select = ?");
-    values.push(data.markAsReadOnSelect ? 1 : 0);
-  }
-  if (data.defaultRefreshInterval !== undefined) {
-    updates.push("default_refresh_interval = ?");
-    values.push(data.defaultRefreshInterval);
-  }
-  if (data.maxArticlesPerFeed !== undefined) {
-    updates.push("max_articles_per_feed = ?");
-    values.push(data.maxArticlesPerFeed);
-  }
-  if (data.compactMode !== undefined) {
-    updates.push("compact_mode = ?");
-    values.push(data.compactMode ? 1 : 0);
-  }
-  if (data.swipeEnabled !== undefined) {
-    updates.push("swipe_enabled = ?");
-    values.push(data.swipeEnabled ? 1 : 0);
-  }
-  if (data.swipeLeftAction !== undefined) {
-    updates.push("swipe_left_action = ?");
-    values.push(data.swipeLeftAction);
-  }
-  if (data.swipeRightAction !== undefined) {
-    updates.push("swipe_right_action = ?");
-    values.push(data.swipeRightAction);
-  }
-  if (data.uiSidebarWidth !== undefined) {
-    updates.push("ui_sidebar_width = ?");
-    values.push(data.uiSidebarWidth);
-  }
-  if (data.uiArticleListWidth !== undefined) {
-    updates.push("ui_article_list_width = ?");
-    values.push(data.uiArticleListWidth);
-  }
-  if (data.uiArticleLayout !== undefined) {
-    updates.push("ui_article_layout = ?");
-    values.push(data.uiArticleLayout);
-  }
-  if (data.uiReaderModeEnabled !== undefined) {
-    updates.push("ui_reader_mode_enabled = ?");
-    values.push(data.uiReaderModeEnabled ? 1 : 0);
-  }
+  if (data.theme !== undefined) updateData.theme = data.theme;
+  if (data.fontSize !== undefined) updateData.font_size = data.fontSize;
+  if (data.markAsReadOnSelect !== undefined)
+    updateData.mark_as_read_on_select = data.markAsReadOnSelect;
+  if (data.defaultRefreshInterval !== undefined)
+    updateData.default_refresh_interval = data.defaultRefreshInterval;
+  if (data.maxArticlesPerFeed !== undefined)
+    updateData.max_articles_per_feed = data.maxArticlesPerFeed;
+  if (data.compactMode !== undefined) updateData.compact_mode = data.compactMode;
+  if (data.swipeEnabled !== undefined)
+    updateData.swipe_enabled = data.swipeEnabled;
+  if (data.swipeLeftAction !== undefined)
+    updateData.swipe_left_action = data.swipeLeftAction;
+  if (data.swipeRightAction !== undefined)
+    updateData.swipe_right_action = data.swipeRightAction;
+  if (data.uiSidebarWidth !== undefined)
+    updateData.ui_sidebar_width = data.uiSidebarWidth;
+  if (data.uiArticleListWidth !== undefined)
+    updateData.ui_article_list_width = data.uiArticleListWidth;
+  if (data.uiArticleLayout !== undefined)
+    updateData.ui_article_layout = data.uiArticleLayout;
+  if (data.uiReaderModeEnabled !== undefined)
+    updateData.ui_reader_mode_enabled = data.uiReaderModeEnabled;
 
-  if (updates.length > 0) {
-    values.push(userId);
-    db.prepare(
-      `UPDATE user_settings SET ${updates.join(", ")} WHERE user_id = ?`
-    ).run(...values);
+  if (Object.keys(updateData).length > 0) {
+    await supabase
+      .from("user_settings")
+      .update(updateData)
+      .eq("user_id", userId);
   }
 
   return getUserSettings(userId);

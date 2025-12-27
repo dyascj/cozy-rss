@@ -13,7 +13,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const folder = folderRepo.getFolderById(id, user.id);
+    const folder = await folderRepo.getFolderById(id, user.id);
 
     if (!folder) {
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
@@ -42,7 +42,7 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    const folder = folderRepo.updateFolder(id, user.id, body);
+    const folder = await folderRepo.updateFolder(id, user.id, body);
 
     if (!folder) {
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
@@ -69,7 +69,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const deleted = folderRepo.deleteFolder(id, user.id);
+    const deleted = await folderRepo.deleteFolder(id, user.id);
 
     if (!deleted) {
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });

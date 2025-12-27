@@ -1,19 +1,10 @@
 import { NextResponse } from "next/server";
-import { deleteSession } from "@/lib/auth/session";
-import { cookies } from "next/headers";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST() {
   try {
-    const cookieStore = await cookies();
-    const sessionId = cookieStore.get("session")?.value;
-
-    // Delete session from database if it exists
-    if (sessionId) {
-      deleteSession(sessionId);
-    }
-
-    // Clear session cookie
-    cookieStore.delete("session");
+    const supabase = await createClient();
+    await supabase.auth.signOut();
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,4 +1,4 @@
-import { getDb, generateId, now, ArticleRow, ArticleStateRow } from "../index";
+import { createClient } from "@/lib/supabase/server";
 
 export interface Article {
   id: string;
@@ -10,8 +10,8 @@ export interface Article {
   summary: string | null;
   content: string | null;
   imageUrl: string | null;
-  publishedAt: number;
-  fetchedAt: number;
+  publishedAt: string;
+  fetchedAt: string;
   readerContent: string | null;
   readerError: string | null;
 }
@@ -23,16 +23,32 @@ export interface ArticleState {
   isRead: boolean;
   isStarred: boolean;
   isReadLater: boolean;
-  readLaterAddedAt: number | null;
-  readAt: number | null;
-  starredAt: number | null;
+  readLaterAddedAt: string | null;
+  readAt: string | null;
+  starredAt: string | null;
 }
 
 export interface ArticleWithState extends Article {
   isRead: boolean;
   isStarred: boolean;
   isReadLater: boolean;
-  readLaterAddedAt: number | null;
+  readLaterAddedAt: string | null;
+}
+
+interface ArticleRow {
+  id: string;
+  feed_id: string;
+  guid: string;
+  title: string;
+  link: string;
+  author: string | null;
+  summary: string | null;
+  content: string | null;
+  image_url: string | null;
+  published_at: string;
+  fetched_at: string;
+  reader_content: string | null;
+  reader_error: string | null;
 }
 
 function rowToArticle(row: ArticleRow): Article {
@@ -53,82 +69,37 @@ function rowToArticle(row: ArticleRow): Article {
   };
 }
 
-// Ensure article exists in database (upsert)
-export function ensureArticleExists(data: {
-  id: string;
-  feedId: string;
-  guid: string;
-  title: string;
-  link: string;
-  content?: string | null;
-  summary?: string | null;
-  author?: string | null;
-  imageUrl?: string | null;
-  publishedAt?: number;
-}): void {
-  const db = getDb();
-  const timestamp = now();
-
-  // Try to insert, ignore if already exists
-  db.prepare(
-    `
-    INSERT OR IGNORE INTO articles (id, feed_id, guid, title, link, content, summary, author, image_url, published_at, fetched_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `
-  ).run(
-    data.id,
-    data.feedId,
-    data.guid,
-    data.title,
-    data.link,
-    data.content || null,
-    data.summary || null,
-    data.author || null,
-    data.imageUrl || null,
-    data.publishedAt || timestamp,
-    timestamp
-  );
-}
-
-export function getArticlesByFeed(
+export async function getArticlesByFeed(
   feedId: string,
   userId: string,
   limit: number = 50
-): ArticleWithState[] {
-  const db = getDb();
-  const rows = db
-    .prepare(
+): Promise<ArticleWithState[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("articles")
+    .select(
       `
-      SELECT
-        a.*,
-        COALESCE(s.is_read, 0) as is_read,
-        COALESCE(s.is_starred, 0) as is_starred,
-        COALESCE(s.is_read_later, 0) as is_read_later,
-        s.read_later_added_at
-      FROM articles a
-      LEFT JOIN article_states s ON s.article_id = a.id AND s.user_id = ?
-      WHERE a.feed_id = ?
-      ORDER BY a.published_at DESC
-      LIMIT ?
+      *,
+      article_states!left(is_read, is_starred, is_read_later, read_later_added_at)
     `
     )
-    .all(userId, feedId, limit) as (ArticleRow & {
-    is_read: number;
-    is_starred: number;
-    is_read_later: number;
-    read_later_added_at: number | null;
-  })[];
+    .eq("feed_id", feedId)
+    .order("published_at", { ascending: false })
+    .limit(limit);
 
-  return rows.map((row) => ({
-    ...rowToArticle(row),
-    isRead: row.is_read === 1,
-    isStarred: row.is_starred === 1,
-    isReadLater: row.is_read_later === 1,
-    readLaterAddedAt: row.read_later_added_at,
+  if (error) throw error;
+
+  return (data || []).map((row) => ({
+    ...rowToArticle(row as ArticleRow),
+    isRead: row.article_states?.[0]?.is_read ?? false,
+    isStarred: row.article_states?.[0]?.is_starred ?? false,
+    isReadLater: row.article_states?.[0]?.is_read_later ?? false,
+    readLaterAddedAt: row.article_states?.[0]?.read_later_added_at ?? null,
   }));
 }
 
-export function getArticlesByUser(
+export async function getArticlesByUser(
   userId: string,
   options: {
     feedIds?: string[];
@@ -138,106 +109,114 @@ export function getArticlesByUser(
     limit?: number;
     offset?: number;
   } = {}
-): ArticleWithState[] {
-  const db = getDb();
-  const conditions: string[] = [];
-  const params: (string | number)[] = [userId];
+): Promise<ArticleWithState[]> {
+  const supabase = await createClient();
 
-  if (options.feedIds && options.feedIds.length > 0) {
-    conditions.push(`a.feed_id IN (${options.feedIds.map(() => "?").join(", ")})`);
-    params.push(...options.feedIds);
-  }
+  // First get the user's feeds
+  const { data: userFeeds } = await supabase
+    .from("feeds")
+    .select("id")
+    .eq("user_id", userId);
 
-  if (options.isStarred) {
-    conditions.push("s.is_starred = 1");
-  }
+  const userFeedIds = userFeeds?.map((f) => f.id) || [];
 
-  if (options.isReadLater) {
-    conditions.push("s.is_read_later = 1");
-  }
+  if (userFeedIds.length === 0) return [];
 
-  if (options.isUnread) {
-    conditions.push("(s.is_read IS NULL OR s.is_read = 0)");
-  }
+  const feedIdsToQuery = options.feedIds
+    ? options.feedIds.filter((id) => userFeedIds.includes(id))
+    : userFeedIds;
 
-  const whereClause = conditions.length > 0 ? `AND ${conditions.join(" AND ")}` : "";
-  const limit = options.limit || 100;
-  const offset = options.offset || 0;
+  if (feedIdsToQuery.length === 0) return [];
 
-  const rows = db
-    .prepare(
+  let query = supabase
+    .from("articles")
+    .select(
       `
-      SELECT
-        a.*,
-        COALESCE(s.is_read, 0) as is_read,
-        COALESCE(s.is_starred, 0) as is_starred,
-        COALESCE(s.is_read_later, 0) as is_read_later,
-        s.read_later_added_at
-      FROM articles a
-      JOIN feeds f ON f.id = a.feed_id AND f.user_id = ?
-      LEFT JOIN article_states s ON s.article_id = a.id AND s.user_id = f.user_id
-      WHERE 1=1 ${whereClause}
-      ORDER BY a.published_at DESC
-      LIMIT ? OFFSET ?
+      *,
+      article_states!left(is_read, is_starred, is_read_later, read_later_added_at, user_id)
     `
     )
-    .all(...params, limit, offset) as (ArticleRow & {
-    is_read: number;
-    is_starred: number;
-    is_read_later: number;
-    read_later_added_at: number | null;
-  })[];
+    .in("feed_id", feedIdsToQuery)
+    .order("published_at", { ascending: false })
+    .limit(options.limit || 100);
 
-  return rows.map((row) => ({
-    ...rowToArticle(row),
-    isRead: row.is_read === 1,
-    isStarred: row.is_starred === 1,
-    isReadLater: row.is_read_later === 1,
-    readLaterAddedAt: row.read_later_added_at,
-  }));
+  if (options.offset) {
+    query = query.range(
+      options.offset,
+      options.offset + (options.limit || 100) - 1
+    );
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+
+  let results = (data || []).map((row) => {
+    // Find the state for this user
+    const state = row.article_states?.find(
+      (s: { user_id: string }) => s.user_id === userId
+    );
+    return {
+      ...rowToArticle(row as ArticleRow),
+      isRead: state?.is_read ?? false,
+      isStarred: state?.is_starred ?? false,
+      isReadLater: state?.is_read_later ?? false,
+      readLaterAddedAt: state?.read_later_added_at ?? null,
+    };
+  });
+
+  // Filter based on options
+  if (options.isStarred) {
+    results = results.filter((a) => a.isStarred);
+  }
+  if (options.isReadLater) {
+    results = results.filter((a) => a.isReadLater);
+  }
+  if (options.isUnread) {
+    results = results.filter((a) => !a.isRead);
+  }
+
+  return results;
 }
 
-export function getArticleById(
+export async function getArticleById(
   articleId: string,
   userId: string
-): ArticleWithState | null {
-  const db = getDb();
-  const row = db
-    .prepare(
+): Promise<ArticleWithState | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("articles")
+    .select(
       `
-      SELECT
-        a.*,
-        COALESCE(s.is_read, 0) as is_read,
-        COALESCE(s.is_starred, 0) as is_starred,
-        COALESCE(s.is_read_later, 0) as is_read_later,
-        s.read_later_added_at
-      FROM articles a
-      JOIN feeds f ON f.id = a.feed_id AND f.user_id = ?
-      LEFT JOIN article_states s ON s.article_id = a.id AND s.user_id = f.user_id
-      WHERE a.id = ?
+      *,
+      article_states!left(is_read, is_starred, is_read_later, read_later_added_at, user_id)
     `
     )
-    .get(userId, articleId) as
-    | (ArticleRow & {
-        is_read: number;
-        is_starred: number;
-        is_read_later: number;
-        read_later_added_at: number | null;
-      })
-    | undefined;
+    .eq("id", articleId)
+    .single();
 
-  if (!row) return null;
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw error;
+  }
+
+  if (!data) return null;
+
+  const state = data.article_states?.find(
+    (s: { user_id: string }) => s.user_id === userId
+  );
 
   return {
-    ...rowToArticle(row),
-    isRead: row.is_read === 1,
-    isStarred: row.is_starred === 1,
-    isReadLater: row.is_read_later === 1,
-    readLaterAddedAt: row.read_later_added_at,
+    ...rowToArticle(data as ArticleRow),
+    isRead: state?.is_read ?? false,
+    isStarred: state?.is_starred ?? false,
+    isReadLater: state?.is_read_later ?? false,
+    readLaterAddedAt: state?.read_later_added_at ?? null,
   };
 }
 
-export function createArticle(data: {
+export async function createArticle(data: {
   feedId: string;
   guid: string;
   title: string;
@@ -246,62 +225,45 @@ export function createArticle(data: {
   summary?: string;
   content?: string;
   imageUrl?: string;
-  publishedAt: number;
-}): Article {
-  const db = getDb();
+  publishedAt: string;
+}): Promise<Article> {
+  const supabase = await createClient();
 
-  // Generate deterministic ID from feedId and guid
-  const id = generateArticleId(data.feedId, data.guid);
-  const fetchedAt = now();
+  const { data: article, error } = await supabase
+    .from("articles")
+    .insert({
+      feed_id: data.feedId,
+      guid: data.guid,
+      title: data.title,
+      link: data.link,
+      author: data.author || null,
+      summary: data.summary || null,
+      content: data.content || null,
+      image_url: data.imageUrl || null,
+      published_at: data.publishedAt,
+      fetched_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
 
-  try {
-    db.prepare(
-      `
-      INSERT INTO articles (id, feed_id, guid, title, link, author, summary, content, image_url, published_at, fetched_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `
-    ).run(
-      id,
-      data.feedId,
-      data.guid,
-      data.title,
-      data.link,
-      data.author || null,
-      data.summary || null,
-      data.content || null,
-      data.imageUrl || null,
-      data.publishedAt,
-      fetchedAt
-    );
-  } catch (error) {
+  if (error) {
     // Handle duplicate - article already exists
-    if ((error as Error).message.includes("UNIQUE constraint failed")) {
-      const existing = db
-        .prepare("SELECT * FROM articles WHERE id = ?")
-        .get(id) as ArticleRow;
-      return rowToArticle(existing);
+    if (error.code === "23505") {
+      const { data: existing } = await supabase
+        .from("articles")
+        .select("*")
+        .eq("feed_id", data.feedId)
+        .eq("guid", data.guid)
+        .single();
+      if (existing) return rowToArticle(existing);
     }
     throw error;
   }
 
-  return {
-    id,
-    feedId: data.feedId,
-    guid: data.guid,
-    title: data.title,
-    link: data.link,
-    author: data.author || null,
-    summary: data.summary || null,
-    content: data.content || null,
-    imageUrl: data.imageUrl || null,
-    publishedAt: data.publishedAt,
-    fetchedAt,
-    readerContent: null,
-    readerError: null,
-  };
+  return rowToArticle(article);
 }
 
-export function createArticlesBulk(
+export async function createArticlesBulk(
   articles: {
     feedId: string;
     guid: string;
@@ -311,73 +273,35 @@ export function createArticlesBulk(
     summary?: string;
     content?: string;
     imageUrl?: string;
-    publishedAt: number;
+    publishedAt: string;
   }[]
-): Article[] {
-  const db = getDb();
-  const fetchedAt = now();
-  const createdArticles: Article[] = [];
+): Promise<Article[]> {
+  const supabase = await createClient();
+  const fetchedAt = new Date().toISOString();
 
-  const insert = db.prepare(`
-    INSERT OR IGNORE INTO articles (id, feed_id, guid, title, link, author, summary, content, image_url, published_at, fetched_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
+  const insertData = articles.map((data) => ({
+    feed_id: data.feedId,
+    guid: data.guid,
+    title: data.title,
+    link: data.link,
+    author: data.author || null,
+    summary: data.summary || null,
+    content: data.content || null,
+    image_url: data.imageUrl || null,
+    published_at: data.publishedAt,
+    fetched_at: fetchedAt,
+  }));
 
-  const bulkInsert = db.transaction(() => {
-    for (const data of articles) {
-      const id = generateArticleId(data.feedId, data.guid);
+  const { data, error } = await supabase
+    .from("articles")
+    .upsert(insertData, { onConflict: "feed_id,guid", ignoreDuplicates: true })
+    .select();
 
-      const result = insert.run(
-        id,
-        data.feedId,
-        data.guid,
-        data.title,
-        data.link,
-        data.author || null,
-        data.summary || null,
-        data.content || null,
-        data.imageUrl || null,
-        data.publishedAt,
-        fetchedAt
-      );
-
-      if (result.changes > 0) {
-        createdArticles.push({
-          id,
-          feedId: data.feedId,
-          guid: data.guid,
-          title: data.title,
-          link: data.link,
-          author: data.author || null,
-          summary: data.summary || null,
-          content: data.content || null,
-          imageUrl: data.imageUrl || null,
-          publishedAt: data.publishedAt,
-          fetchedAt,
-          readerContent: null,
-          readerError: null,
-        });
-      }
-    }
-  });
-
-  bulkInsert();
-  return createdArticles;
+  if (error) throw error;
+  return (data || []).map(rowToArticle);
 }
 
-function generateArticleId(feedId: string, guid: string): string {
-  // Create a deterministic ID from feedId and guid
-  const input = `${feedId}:${guid}`;
-  let hash = 0;
-  for (let i = 0; i < input.length; i++) {
-    const char = input.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
-  return `art_${Math.abs(hash).toString(36)}`;
-}
-
-export function updateArticleState(
+export async function updateArticleState(
   articleId: string,
   userId: string,
   data: {
@@ -385,157 +309,147 @@ export function updateArticleState(
     isStarred?: boolean;
     isReadLater?: boolean;
   }
-): ArticleState | null {
-  const db = getDb();
-  const timestamp = now();
+): Promise<ArticleState | null> {
+  const supabase = await createClient();
+  const timestamp = new Date().toISOString();
 
-  // First, ensure the article state exists
-  const existingState = db
-    .prepare(
-      `
-      SELECT * FROM article_states
-      WHERE article_id = ? AND user_id = ?
-    `
-    )
-    .get(articleId, userId) as ArticleStateRow | undefined;
+  // Check if state exists
+  const { data: existingState } = await supabase
+    .from("article_states")
+    .select("*")
+    .eq("article_id", articleId)
+    .eq("user_id", userId)
+    .single();
+
+  const updateData: Record<string, unknown> = {};
+
+  if (data.isRead !== undefined) {
+    updateData.is_read = data.isRead;
+    updateData.read_at = data.isRead ? timestamp : null;
+  }
+  if (data.isStarred !== undefined) {
+    updateData.is_starred = data.isStarred;
+    updateData.starred_at = data.isStarred ? timestamp : null;
+  }
+  if (data.isReadLater !== undefined) {
+    updateData.is_read_later = data.isReadLater;
+    updateData.read_later_added_at = data.isReadLater ? timestamp : null;
+  }
 
   if (!existingState) {
     // Create new state
-    const stateId = generateId();
-    db.prepare(
-      `
-      INSERT INTO article_states (id, user_id, article_id, is_read, is_starred, is_read_later, read_at, starred_at, read_later_added_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `
-    ).run(
-      stateId,
-      userId,
-      articleId,
-      data.isRead ? 1 : 0,
-      data.isStarred ? 1 : 0,
-      data.isReadLater ? 1 : 0,
-      data.isRead ? timestamp : null,
-      data.isStarred ? timestamp : null,
-      data.isReadLater ? timestamp : null
-    );
+    const { data: newState, error } = await supabase
+      .from("article_states")
+      .insert({
+        user_id: userId,
+        article_id: articleId,
+        is_read: data.isRead ?? false,
+        is_starred: data.isStarred ?? false,
+        is_read_later: data.isReadLater ?? false,
+        read_at: data.isRead ? timestamp : null,
+        starred_at: data.isStarred ? timestamp : null,
+        read_later_added_at: data.isReadLater ? timestamp : null,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     return {
-      id: stateId,
-      userId,
-      articleId,
-      isRead: data.isRead || false,
-      isStarred: data.isStarred || false,
-      isReadLater: data.isReadLater || false,
-      readLaterAddedAt: data.isReadLater ? timestamp : null,
-      readAt: data.isRead ? timestamp : null,
-      starredAt: data.isStarred ? timestamp : null,
+      id: newState.id,
+      userId: newState.user_id,
+      articleId: newState.article_id,
+      isRead: newState.is_read,
+      isStarred: newState.is_starred,
+      isReadLater: newState.is_read_later,
+      readLaterAddedAt: newState.read_later_added_at,
+      readAt: newState.read_at,
+      starredAt: newState.starred_at,
     };
   }
 
   // Update existing state
-  const updates: string[] = [];
-  const values: (number | null)[] = [];
+  const { data: updatedState, error } = await supabase
+    .from("article_states")
+    .update(updateData)
+    .eq("article_id", articleId)
+    .eq("user_id", userId)
+    .select()
+    .single();
 
-  if (data.isRead !== undefined) {
-    updates.push("is_read = ?");
-    values.push(data.isRead ? 1 : 0);
-    updates.push("read_at = ?");
-    values.push(data.isRead ? timestamp : null);
-  }
-  if (data.isStarred !== undefined) {
-    updates.push("is_starred = ?");
-    values.push(data.isStarred ? 1 : 0);
-    updates.push("starred_at = ?");
-    values.push(data.isStarred ? timestamp : null);
-  }
-  if (data.isReadLater !== undefined) {
-    updates.push("is_read_later = ?");
-    values.push(data.isReadLater ? 1 : 0);
-    updates.push("read_later_added_at = ?");
-    values.push(data.isReadLater ? timestamp : null);
-  }
-
-  if (updates.length > 0) {
-    db.prepare(
-      `UPDATE article_states SET ${updates.join(", ")} WHERE article_id = ? AND user_id = ?`
-    ).run(...values, articleId, userId);
-  }
-
-  const updatedState = db
-    .prepare(
-      `SELECT * FROM article_states WHERE article_id = ? AND user_id = ?`
-    )
-    .get(articleId, userId) as ArticleStateRow;
+  if (error) throw error;
 
   return {
     id: updatedState.id,
     userId: updatedState.user_id,
     articleId: updatedState.article_id,
-    isRead: updatedState.is_read === 1,
-    isStarred: updatedState.is_starred === 1,
-    isReadLater: updatedState.is_read_later === 1,
+    isRead: updatedState.is_read,
+    isStarred: updatedState.is_starred,
+    isReadLater: updatedState.is_read_later,
     readLaterAddedAt: updatedState.read_later_added_at,
     readAt: updatedState.read_at,
     starredAt: updatedState.starred_at,
   };
 }
 
-export function markAllAsRead(feedId: string, userId: string): number {
-  const db = getDb();
-  const timestamp = now();
+export async function markAllAsRead(
+  feedId: string,
+  userId: string
+): Promise<number> {
+  const supabase = await createClient();
+  const timestamp = new Date().toISOString();
 
-  // Get all article IDs for the feed
-  const articles = db
-    .prepare("SELECT id FROM articles WHERE feed_id = ?")
-    .all(feedId) as { id: string }[];
+  // Get all articles for the feed
+  const { data: articles } = await supabase
+    .from("articles")
+    .select("id")
+    .eq("feed_id", feedId);
+
+  if (!articles || articles.length === 0) return 0;
 
   let updated = 0;
+  for (const article of articles) {
+    const { data: existing } = await supabase
+      .from("article_states")
+      .select("id")
+      .eq("article_id", article.id)
+      .eq("user_id", userId)
+      .single();
 
-  const markRead = db.transaction(() => {
-    for (const article of articles) {
-      const existing = db
-        .prepare(
-          "SELECT id FROM article_states WHERE article_id = ? AND user_id = ?"
-        )
-        .get(article.id, userId);
-
-      if (existing) {
-        db.prepare(
-          "UPDATE article_states SET is_read = 1, read_at = ? WHERE article_id = ? AND user_id = ?"
-        ).run(timestamp, article.id, userId);
-      } else {
-        const stateId = generateId();
-        db.prepare(
-          "INSERT INTO article_states (id, user_id, article_id, is_read, read_at) VALUES (?, ?, ?, 1, ?)"
-        ).run(stateId, userId, article.id, timestamp);
-      }
-      updated++;
+    if (existing) {
+      await supabase
+        .from("article_states")
+        .update({ is_read: true, read_at: timestamp })
+        .eq("article_id", article.id)
+        .eq("user_id", userId);
+    } else {
+      await supabase.from("article_states").insert({
+        user_id: userId,
+        article_id: article.id,
+        is_read: true,
+        read_at: timestamp,
+      });
     }
-  });
+    updated++;
+  }
 
-  markRead();
   return updated;
 }
 
-export function updateReaderContent(
+export async function updateReaderContent(
   articleId: string,
   content: string | null,
   error: string | null
-): void {
-  const db = getDb();
-  db.prepare(
-    `
-    UPDATE articles SET reader_content = ?, reader_error = ?
-    WHERE id = ?
-  `
-  ).run(content, error, articleId);
+): Promise<void> {
+  const supabase = await createClient();
+
+  await supabase
+    .from("articles")
+    .update({ reader_content: content, reader_error: error })
+    .eq("id", articleId);
 }
 
-/**
- * Batch update article states for better performance
- * Used for operations like "mark all as read"
- */
-export function batchUpdateArticleStates(
+export async function batchUpdateArticleStates(
   userId: string,
   articleIds: string[],
   data: {
@@ -543,113 +457,118 @@ export function batchUpdateArticleStates(
     isStarred?: boolean;
     isReadLater?: boolean;
   }
-): number {
+): Promise<number> {
   if (articleIds.length === 0) return 0;
 
-  const db = getDb();
-  const timestamp = now();
   let updated = 0;
+  for (const articleId of articleIds) {
+    await updateArticleState(articleId, userId, data);
+    updated++;
+  }
 
-  const batchUpdate = db.transaction(() => {
-    for (const articleId of articleIds) {
-      const existing = db
-        .prepare(
-          "SELECT id FROM article_states WHERE article_id = ? AND user_id = ?"
-        )
-        .get(articleId, userId) as { id: string } | undefined;
-
-      if (existing) {
-        const updates: string[] = [];
-        const values: (number | null)[] = [];
-
-        if (data.isRead !== undefined) {
-          updates.push("is_read = ?");
-          values.push(data.isRead ? 1 : 0);
-          updates.push("read_at = ?");
-          values.push(data.isRead ? timestamp : null);
-        }
-        if (data.isStarred !== undefined) {
-          updates.push("is_starred = ?");
-          values.push(data.isStarred ? 1 : 0);
-          updates.push("starred_at = ?");
-          values.push(data.isStarred ? timestamp : null);
-        }
-        if (data.isReadLater !== undefined) {
-          updates.push("is_read_later = ?");
-          values.push(data.isReadLater ? 1 : 0);
-          updates.push("read_later_added_at = ?");
-          values.push(data.isReadLater ? timestamp : null);
-        }
-
-        if (updates.length > 0) {
-          db.prepare(
-            `UPDATE article_states SET ${updates.join(", ")} WHERE article_id = ? AND user_id = ?`
-          ).run(...values, articleId, userId);
-          updated++;
-        }
-      } else {
-        // Create new state
-        const stateId = generateId();
-        db.prepare(
-          `
-          INSERT INTO article_states (id, user_id, article_id, is_read, is_starred, is_read_later, read_at, starred_at, read_later_added_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `
-        ).run(
-          stateId,
-          userId,
-          articleId,
-          data.isRead ? 1 : 0,
-          data.isStarred ? 1 : 0,
-          data.isReadLater ? 1 : 0,
-          data.isRead ? timestamp : null,
-          data.isStarred ? timestamp : null,
-          data.isReadLater ? timestamp : null
-        );
-        updated++;
-      }
-    }
-  });
-
-  batchUpdate();
   return updated;
 }
 
-export function pruneArticles(feedId: string, maxArticles: number): number {
-  const db = getDb();
+export async function pruneArticles(
+  feedId: string,
+  maxArticles: number
+): Promise<number> {
+  const supabase = await createClient();
 
-  // Get IDs of articles to keep (most recent + starred)
-  const keepIds = db
-    .prepare(
+  // Get articles to keep (most recent + starred)
+  const { data: keepArticles } = await supabase
+    .from("articles")
+    .select(
       `
-      SELECT a.id FROM articles a
-      LEFT JOIN article_states s ON s.article_id = a.id
-      WHERE a.feed_id = ?
-      ORDER BY
-        CASE WHEN s.is_starred = 1 THEN 0 ELSE 1 END,
-        a.published_at DESC
-      LIMIT ?
+      id,
+      article_states!left(is_starred)
     `
     )
-    .all(feedId, maxArticles) as { id: string }[];
+    .eq("feed_id", feedId)
+    .order("published_at", { ascending: false });
 
-  const keepIdSet = new Set(keepIds.map((r) => r.id));
+  if (!keepArticles) return 0;
 
-  // Delete articles not in keep list
-  const allIds = db
-    .prepare("SELECT id FROM articles WHERE feed_id = ?")
-    .all(feedId) as { id: string }[];
+  // Sort: starred first, then by recency
+  const sorted = keepArticles.sort((a, b) => {
+    const aStarred = a.article_states?.some((s) => s.is_starred) ?? false;
+    const bStarred = b.article_states?.some((s) => s.is_starred) ?? false;
+    if (aStarred && !bStarred) return -1;
+    if (!aStarred && bStarred) return 1;
+    return 0;
+  });
 
-  const toDelete = allIds.filter((a) => !keepIdSet.has(a.id));
+  const keepIds = new Set(sorted.slice(0, maxArticles).map((a) => a.id));
+  const toDelete = sorted.filter((a) => !keepIds.has(a.id)).map((a) => a.id);
 
   if (toDelete.length === 0) return 0;
 
-  const deleteArticles = db.transaction(() => {
-    for (const article of toDelete) {
-      db.prepare("DELETE FROM articles WHERE id = ?").run(article.id);
-    }
-  });
+  const { error } = await supabase
+    .from("articles")
+    .delete()
+    .in("id", toDelete);
 
-  deleteArticles();
+  if (error) throw error;
   return toDelete.length;
+}
+
+// Ensure article exists (for compatibility)
+// Returns the actual article ID (may differ from input if article already exists)
+export async function ensureArticleExists(data: {
+  id: string;
+  feedId: string;
+  guid: string;
+  title: string;
+  link: string;
+  content?: string | null;
+  summary?: string | null;
+  author?: string | null;
+  imageUrl?: string | null;
+  publishedAt?: string;
+}): Promise<string> {
+  const supabase = await createClient();
+
+  // First check if article already exists by feed_id and guid
+  const { data: existing } = await supabase
+    .from("articles")
+    .select("id")
+    .eq("feed_id", data.feedId)
+    .eq("guid", data.guid)
+    .single();
+
+  if (existing) {
+    return existing.id; // Return existing article's ID
+  }
+
+  // Insert new article
+  const { data: inserted, error } = await supabase
+    .from("articles")
+    .insert({
+      id: data.id,
+      feed_id: data.feedId,
+      guid: data.guid,
+      title: data.title,
+      link: data.link,
+      content: data.content || null,
+      summary: data.summary || null,
+      author: data.author || null,
+      image_url: data.imageUrl || null,
+      published_at: data.publishedAt || new Date().toISOString(),
+      fetched_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    // If insert failed due to conflict, try to get existing
+    const { data: fallback } = await supabase
+      .from("articles")
+      .select("id")
+      .eq("feed_id", data.feedId)
+      .eq("guid", data.guid)
+      .single();
+    return fallback?.id || data.id;
+  }
+
+  return inserted?.id || data.id;
 }

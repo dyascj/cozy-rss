@@ -13,7 +13,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const tag = tagRepo.getTagById(id, user.id);
+    const tag = await tagRepo.getTagById(id, user.id);
 
     if (!tag) {
       return NextResponse.json({ error: "Tag not found" }, { status: 404 });
@@ -39,7 +39,7 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    const tag = tagRepo.updateTag(id, user.id, body);
+    const tag = await tagRepo.updateTag(id, user.id, body);
 
     if (!tag) {
       return NextResponse.json({ error: "Tag not found" }, { status: 404 });
@@ -66,7 +66,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const deleted = tagRepo.deleteTag(id, user.id);
+    const deleted = await tagRepo.deleteTag(id, user.id);
 
     if (!deleted) {
       return NextResponse.json({ error: "Tag not found" }, { status: 404 });

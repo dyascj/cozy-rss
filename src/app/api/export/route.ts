@@ -14,12 +14,12 @@ export async function GET() {
     }
 
     // Gather all user data
-    const folders = folderRepo.getFoldersByUser(user.id);
-    const feeds = feedRepo.getFeedsByUser(user.id);
-    const articles = articleRepo.getArticlesByUser(user.id, {});
-    const tags = tagRepo.getTagsByUser(user.id);
-    const articleTags = tagRepo.getArticleTagsMap(user.id);
-    const settings = settingsRepo.getUserSettings(user.id);
+    const folders = await folderRepo.getFoldersByUser(user.id);
+    const feeds = await feedRepo.getFeedsByUser(user.id);
+    const articles = await articleRepo.getArticlesByUser(user.id, {});
+    const tags = await tagRepo.getTagsByUser(user.id);
+    const articleTags = await tagRepo.getArticleTagsMap(user.id);
+    const settings = await settingsRepo.getUserSettings(user.id);
 
     // Get article states
     const articleStates: Record<string, { isRead: boolean; isStarred: boolean; isReadLater: boolean }> = {};
@@ -84,8 +84,8 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const folders = folderRepo.getFoldersByUser(user.id);
-    const feeds = feedRepo.getFeedsByUser(user.id);
+    const folders = await folderRepo.getFoldersByUser(user.id);
+    const feeds = await feedRepo.getFeedsByUser(user.id);
 
     // Build OPML structure
     const folderMap = new Map(folders.map((f) => [f.id, f]));

@@ -9,11 +9,11 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const tags = tagRepo.getTagsByUser(user.id);
-    const articleTags = tagRepo.getArticleTagsMap(user.id);
+    const tags = await tagRepo.getTagsByUser(user.id);
+    const articleTags = await tagRepo.getArticleTagsMap(user.id);
 
     // Transform to match existing store format
-    const tagsMap: Record<string, typeof tags[0]> = {};
+    const tagsMap: Record<string, (typeof tags)[0]> = {};
     tags.forEach((tag) => {
       tagsMap[tag.id] = tag;
     });
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if tag already exists
-    const existing = tagRepo.getTagByName(name, user.id);
+    const existing = await tagRepo.getTagByName(name, user.id);
     if (existing) {
       return NextResponse.json(
         { error: "Tag already exists", tag: existing },
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const tag = tagRepo.createTag(user.id, { name, color });
+    const tag = await tagRepo.createTag(user.id, { name, color });
 
     return NextResponse.json({ tag });
   } catch (error) {

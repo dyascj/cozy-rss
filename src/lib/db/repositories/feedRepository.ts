@@ -1,4 +1,4 @@
-import { getDb, generateId, now, FeedRow } from "../index";
+import { createClient } from "@/lib/supabase/server";
 
 export interface Feed {
   id: string;
@@ -11,9 +11,25 @@ export interface Feed {
   folderId: string | null;
   orderIndex: number;
   fetchInterval: number;
-  lastFetched: number | null;
+  lastFetched: string | null;
   lastError: string | null;
-  createdAt: number;
+  createdAt: string;
+}
+
+interface FeedRow {
+  id: string;
+  user_id: string;
+  url: string;
+  title: string;
+  description: string | null;
+  site_url: string | null;
+  icon_url: string | null;
+  folder_id: string | null;
+  order_index: number;
+  fetch_interval: number;
+  last_fetched: string | null;
+  last_error: string | null;
+  created_at: string;
 }
 
 function rowToFeed(row: FeedRow): Feed {
@@ -34,50 +50,60 @@ function rowToFeed(row: FeedRow): Feed {
   };
 }
 
-export function getFeedsByUser(userId: string): Feed[] {
-  const db = getDb();
-  const rows = db
-    .prepare(
-      `
-      SELECT * FROM feeds
-      WHERE user_id = ?
-      ORDER BY order_index ASC
-    `
-    )
-    .all(userId) as FeedRow[];
+export async function getFeedsByUser(userId: string): Promise<Feed[]> {
+  const supabase = await createClient();
 
-  return rows.map(rowToFeed);
+  const { data, error } = await supabase
+    .from("feeds")
+    .select("*")
+    .eq("user_id", userId)
+    .order("order_index", { ascending: true });
+
+  if (error) throw error;
+  return (data || []).map(rowToFeed);
 }
 
-export function getFeedById(feedId: string, userId: string): Feed | null {
-  const db = getDb();
-  const row = db
-    .prepare(
-      `
-      SELECT * FROM feeds
-      WHERE id = ? AND user_id = ?
-    `
-    )
-    .get(feedId, userId) as FeedRow | undefined;
+export async function getFeedById(
+  feedId: string,
+  userId: string
+): Promise<Feed | null> {
+  const supabase = await createClient();
 
-  return row ? rowToFeed(row) : null;
+  const { data, error } = await supabase
+    .from("feeds")
+    .select("*")
+    .eq("id", feedId)
+    .eq("user_id", userId)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null; // No rows found
+    throw error;
+  }
+  return data ? rowToFeed(data) : null;
 }
 
-export function getFeedByUrl(url: string, userId: string): Feed | null {
-  const db = getDb();
-  const row = db
-    .prepare(
-      `
-      SELECT * FROM feeds
-      WHERE url = ? AND user_id = ?
-    `
-    )
-    .get(url, userId) as FeedRow | undefined;
+export async function getFeedByUrl(
+  url: string,
+  userId: string
+): Promise<Feed | null> {
+  const supabase = await createClient();
 
-  return row ? rowToFeed(row) : null;
+  const { data, error } = await supabase
+    .from("feeds")
+    .select("*")
+    .eq("url", url)
+    .eq("user_id", userId)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw error;
+  }
+  return data ? rowToFeed(data) : null;
 }
 
-export function createFeed(
+export async function createFeed(
   userId: string,
   data: {
     url: string;
@@ -88,59 +114,42 @@ export function createFeed(
     folderId?: string | null;
     fetchInterval?: number;
   }
-): Feed {
-  const db = getDb();
-  const id = generateId();
-  const createdAt = now();
+): Promise<Feed> {
+  const supabase = await createClient();
 
   // Get the next order index for the folder
-  const maxOrder = db
-    .prepare(
-      `
-      SELECT COALESCE(MAX(order_index), -1) + 1 as next_order
-      FROM feeds
-      WHERE user_id = ? AND folder_id IS ?
-    `
-    )
-    .get(userId, data.folderId || null) as { next_order: number };
+  const { data: maxOrderData } = await supabase
+    .from("feeds")
+    .select("order_index")
+    .eq("user_id", userId)
+    .is("folder_id", data.folderId || null)
+    .order("order_index", { ascending: false })
+    .limit(1)
+    .single();
 
-  db.prepare(
-    `
-    INSERT INTO feeds (id, user_id, url, title, description, site_url, icon_url, folder_id, order_index, fetch_interval, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `
-  ).run(
-    id,
-    userId,
-    data.url,
-    data.title,
-    data.description || null,
-    data.siteUrl || null,
-    data.iconUrl || null,
-    data.folderId || null,
-    maxOrder.next_order,
-    data.fetchInterval || 30,
-    createdAt
-  );
+  const nextOrder = (maxOrderData?.order_index ?? -1) + 1;
 
-  return {
-    id,
-    userId,
-    url: data.url,
-    title: data.title,
-    description: data.description || null,
-    siteUrl: data.siteUrl || null,
-    iconUrl: data.iconUrl || null,
-    folderId: data.folderId || null,
-    orderIndex: maxOrder.next_order,
-    fetchInterval: data.fetchInterval || 30,
-    lastFetched: null,
-    lastError: null,
-    createdAt,
-  };
+  const { data: feed, error } = await supabase
+    .from("feeds")
+    .insert({
+      user_id: userId,
+      url: data.url,
+      title: data.title,
+      description: data.description || null,
+      site_url: data.siteUrl || null,
+      icon_url: data.iconUrl || null,
+      folder_id: data.folderId || null,
+      order_index: nextOrder,
+      fetch_interval: data.fetchInterval || 30,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return rowToFeed(feed);
 }
 
-export function updateFeed(
+export async function updateFeed(
   feedId: string,
   userId: string,
   data: {
@@ -151,125 +160,110 @@ export function updateFeed(
     folderId?: string | null;
     orderIndex?: number;
     fetchInterval?: number;
-    lastFetched?: number;
+    lastFetched?: string;
     lastError?: string | null;
   }
-): Feed | null {
-  const db = getDb();
+): Promise<Feed | null> {
+  const supabase = await createClient();
 
-  const existing = getFeedById(feedId, userId);
-  if (!existing) return null;
+  const updateData: Record<string, unknown> = {};
 
-  const updates: string[] = [];
-  const values: (string | number | null)[] = [];
-
-  if (data.title !== undefined) {
-    updates.push("title = ?");
-    values.push(data.title);
-  }
-  if (data.description !== undefined) {
-    updates.push("description = ?");
-    values.push(data.description);
-  }
-  if (data.siteUrl !== undefined) {
-    updates.push("site_url = ?");
-    values.push(data.siteUrl);
-  }
-  if (data.iconUrl !== undefined) {
-    updates.push("icon_url = ?");
-    values.push(data.iconUrl);
-  }
-  if (data.folderId !== undefined) {
-    updates.push("folder_id = ?");
-    values.push(data.folderId);
-  }
-  if (data.orderIndex !== undefined) {
-    updates.push("order_index = ?");
-    values.push(data.orderIndex);
-  }
-  if (data.fetchInterval !== undefined) {
-    updates.push("fetch_interval = ?");
-    values.push(data.fetchInterval);
-  }
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.siteUrl !== undefined) updateData.site_url = data.siteUrl;
+  if (data.iconUrl !== undefined) updateData.icon_url = data.iconUrl;
+  if (data.folderId !== undefined) updateData.folder_id = data.folderId;
+  if (data.orderIndex !== undefined) updateData.order_index = data.orderIndex;
+  if (data.fetchInterval !== undefined)
+    updateData.fetch_interval = data.fetchInterval;
   if (data.lastFetched !== undefined) {
-    updates.push("last_fetched = ?");
-    values.push(data.lastFetched);
+    // Convert timestamp to ISO string if it's a number
+    updateData.last_fetched =
+      typeof data.lastFetched === "number"
+        ? new Date(data.lastFetched).toISOString()
+        : data.lastFetched;
   }
-  if (data.lastError !== undefined) {
-    updates.push("last_error = ?");
-    values.push(data.lastError);
+  if (data.lastError !== undefined) updateData.last_error = data.lastError;
+
+  if (Object.keys(updateData).length === 0) {
+    return getFeedById(feedId, userId);
   }
 
-  if (updates.length > 0) {
-    values.push(feedId, userId);
-    db.prepare(
-      `UPDATE feeds SET ${updates.join(", ")} WHERE id = ? AND user_id = ?`
-    ).run(...values);
-  }
+  const { data: feed, error } = await supabase
+    .from("feeds")
+    .update(updateData)
+    .eq("id", feedId)
+    .eq("user_id", userId)
+    .select()
+    .single();
 
-  return getFeedById(feedId, userId);
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw error;
+  }
+  return feed ? rowToFeed(feed) : null;
 }
 
-export function deleteFeed(feedId: string, userId: string): boolean {
-  const db = getDb();
+export async function deleteFeed(
+  feedId: string,
+  userId: string
+): Promise<boolean> {
+  const supabase = await createClient();
 
-  // Articles will be deleted via CASCADE
-  const result = db
-    .prepare("DELETE FROM feeds WHERE id = ? AND user_id = ?")
-    .run(feedId, userId);
+  const { error, count } = await supabase
+    .from("feeds")
+    .delete()
+    .eq("id", feedId)
+    .eq("user_id", userId);
 
-  return result.changes > 0;
+  if (error) throw error;
+  return (count ?? 0) > 0;
 }
 
-export function moveFeedToFolder(
+export async function moveFeedToFolder(
   feedId: string,
   userId: string,
   folderId: string | null
-): boolean {
-  const db = getDb();
+): Promise<boolean> {
+  const supabase = await createClient();
 
   // Get next order index in target folder
-  const maxOrder = db
-    .prepare(
-      `
-      SELECT COALESCE(MAX(order_index), -1) + 1 as next_order
-      FROM feeds
-      WHERE user_id = ? AND folder_id IS ?
-    `
-    )
-    .get(userId, folderId) as { next_order: number };
+  const { data: maxOrderData } = await supabase
+    .from("feeds")
+    .select("order_index")
+    .eq("user_id", userId)
+    .is("folder_id", folderId)
+    .order("order_index", { ascending: false })
+    .limit(1)
+    .single();
 
-  const result = db
-    .prepare(
-      `
-      UPDATE feeds SET folder_id = ?, order_index = ?
-      WHERE id = ? AND user_id = ?
-    `
-    )
-    .run(folderId, maxOrder.next_order, feedId, userId);
+  const nextOrder = (maxOrderData?.order_index ?? -1) + 1;
 
-  return result.changes > 0;
+  const { error, count } = await supabase
+    .from("feeds")
+    .update({ folder_id: folderId, order_index: nextOrder })
+    .eq("id", feedId)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+  return (count ?? 0) > 0;
 }
 
-export function reorderFeeds(
+export async function reorderFeeds(
   userId: string,
   feedIds: string[],
   folderId: string | null
-): void {
-  const db = getDb();
+): Promise<void> {
+  const supabase = await createClient();
 
-  const updateOrder = db.prepare(
-    `
-    UPDATE feeds SET order_index = ?, folder_id = ?
-    WHERE id = ? AND user_id = ?
-  `
-  );
+  // Update each feed's order in sequence
+  for (let i = 0; i < feedIds.length; i++) {
+    const { error } = await supabase
+      .from("feeds")
+      .update({ order_index: i, folder_id: folderId })
+      .eq("id", feedIds[i])
+      .eq("user_id", userId);
 
-  const reorder = db.transaction(() => {
-    feedIds.forEach((feedId, index) => {
-      updateOrder.run(index, folderId, feedId, userId);
-    });
-  });
-
-  reorder();
+    if (error) throw error;
+  }
 }

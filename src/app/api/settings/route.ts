@@ -9,7 +9,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const settings = settingsRepo.getUserSettings(user.id);
+    const settings = await settingsRepo.getUserSettings(user.id);
 
     return NextResponse.json({ settings });
   } catch (error) {
@@ -29,7 +29,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const settings = settingsRepo.updateUserSettings(user.id, body);
+    const settings = await settingsRepo.updateUserSettings(user.id, body);
 
     return NextResponse.json({ settings });
   } catch (error) {

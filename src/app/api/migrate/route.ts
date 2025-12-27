@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       // First pass: create folders without parents
       const rootFolders = folders.filter((f) => !f.parentId);
       for (const folder of rootFolders) {
-        const newFolder = folderRepo.createFolder(user.id, {
+        const newFolder = await folderRepo.createFolder(user.id, {
           name: folder.name,
           parentFolderId: null,
         });
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       const childFolders = folders.filter((f) => f.parentId);
       for (const folder of childFolders) {
         const parentId = folder.parentId ? folderIdMap[folder.parentId] : null;
-        const newFolder = folderRepo.createFolder(user.id, {
+        const newFolder = await folderRepo.createFolder(user.id, {
           name: folder.name,
           parentFolderId: parentId || null,
         });
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     if (data.feeds) {
       for (const feed of Object.values(data.feeds)) {
         const folderId = feed.folderId ? folderIdMap[feed.folderId] : null;
-        const newFeed = feedRepo.createFeed(user.id, {
+        const newFeed = await feedRepo.createFeed(user.id, {
           url: feed.url,
           title: feed.title,
           description: feed.description,
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
         const feedId = feedIdMap[article.feedId];
         if (!feedId) continue; // Skip if feed wasn't imported
 
-        const newArticle = articleRepo.createArticle({
+        const newArticle = await articleRepo.createArticle({
           feedId,
           guid: article.guid || article.id,
           title: article.title,
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
           content: article.content,
           summary: article.contentSnippet,
           author: article.author,
-          publishedAt: article.publishedAt ? new Date(article.publishedAt).getTime() : Date.now(),
+          publishedAt: article.publishedAt ? new Date(article.publishedAt).toISOString() : new Date().toISOString(),
           imageUrl: article.imageUrl,
         });
         if (newArticle) {
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
       const isReadLater = readLaterSet.has(oldId);
 
       if (isRead || isStarred || isReadLater) {
-        articleRepo.updateArticleState(newId, user.id, {
+        await articleRepo.updateArticleState(newId, user.id, {
           isRead,
           isStarred,
           isReadLater,
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
     // 5. Import tags
     if (data.tags) {
       for (const tag of Object.values(data.tags)) {
-        const newTag = tagRepo.createTag(user.id, {
+        const newTag = await tagRepo.createTag(user.id, {
           name: tag.name,
           color: tag.color,
         });
@@ -193,14 +193,14 @@ export async function POST(request: NextRequest) {
           .filter(Boolean);
 
         if (newTagIds.length > 0) {
-          tagRepo.setArticleTags(newArticleId, user.id, newTagIds);
+          await tagRepo.setArticleTags(newArticleId, user.id, newTagIds);
         }
       }
     }
 
     // 7. Import settings
     if (data.settings) {
-      settingsRepo.updateUserSettings(user.id, data.settings);
+      await settingsRepo.updateUserSettings(user.id, data.settings);
       results.settings = true;
     }
 

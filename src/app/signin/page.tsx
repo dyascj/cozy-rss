@@ -1,105 +1,84 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { AuthLayout } from "@/components/auth/AuthLayout";
-import { useAuthStore } from "@/stores/authStore";
-import { DoodleLoader } from "@/components/ui/DoodleIcon";
+import { OAuthButton, Provider } from "@/components/auth/OAuthButton";
+import { createClient } from "@/lib/supabase/client";
 
-export default function SignInPage() {
-  const router = useRouter();
-  const { signIn, isLoading, error, clearError } = useAuthStore();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+function SignInContent() {
+  const searchParams = useSearchParams();
+  const [loadingProvider, setLoadingProvider] = useState<Provider | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    clearError();
+  // Check for error in URL (from OAuth callback)
+  useEffect(() => {
+    const errorParam = searchParams.get("error");
+    if (errorParam === "auth_callback_error") {
+      setError("Authentication failed. Please try again.");
+    }
+  }, [searchParams]);
 
-    const success = await signIn(username, password);
-    if (success) {
-      router.push("/");
+  const handleOAuthSignIn = async (provider: Provider) => {
+    setLoadingProvider(provider);
+    setError(null);
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      setError(error.message);
+      setLoadingProvider(null);
     }
   };
+
+  const isLoading = loadingProvider !== null;
 
   return (
     <AuthLayout
       title="Welcome back"
       subtitle="Sign in to continue to your reading feed"
     >
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="space-y-4">
         {/* Error message */}
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm"
+            className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm"
           >
             {error}
           </motion.div>
         )}
 
-        {/* Username field */}
-        <div>
-          <label
-            htmlFor="username"
-            className="block text-sm font-medium text-foreground/80 mb-2"
-          >
-            Username
-          </label>
-          <input
-            id="username"
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Enter your username"
-            required
-            autoComplete="username"
-            className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
-          />
-        </div>
-
-        {/* Password field */}
-        <div>
-          <label
-            htmlFor="password"
-            className="block text-sm font-medium text-foreground/80 mb-2"
-          >
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter your password"
-            required
-            autoComplete="current-password"
-            className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
-          />
-        </div>
-
-        {/* Submit button */}
-        <motion.button
-          type="submit"
-          disabled={isLoading}
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
-          className="w-full py-3.5 bg-accent text-accent-foreground rounded-xl font-medium hover:opacity-90 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-        >
-          {isLoading ? (
-            <>
-              <span className="animate-spin">
-                <DoodleLoader size="sm" />
-              </span>
-              Signing in...
-            </>
-          ) : (
-            "Sign in"
-          )}
-        </motion.button>
+        {/* OAuth buttons */}
+        <OAuthButton
+          provider="github"
+          isLoading={isLoading}
+          loadingProvider={loadingProvider}
+          onClick={handleOAuthSignIn}
+        />
+        {/* TODO: Add Google and Microsoft when ready for production
+        <OAuthButton
+          provider="google"
+          isLoading={isLoading}
+          loadingProvider={loadingProvider}
+          onClick={handleOAuthSignIn}
+        />
+        <OAuthButton
+          provider="azure"
+          isLoading={isLoading}
+          loadingProvider={loadingProvider}
+          onClick={handleOAuthSignIn}
+        />
+        */}
 
         {/* Divider */}
         <div className="relative py-4">
@@ -120,7 +99,23 @@ export default function SignInPage() {
         >
           Create an account
         </Link>
-      </form>
+      </div>
     </AuthLayout>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={
+      <AuthLayout title="Welcome back" subtitle="Sign in to continue to your reading feed">
+        <div className="space-y-4">
+          <div className="h-12 bg-muted animate-pulse rounded-xl" />
+          <div className="h-12 bg-muted animate-pulse rounded-xl" />
+          <div className="h-12 bg-muted animate-pulse rounded-xl" />
+        </div>
+      </AuthLayout>
+    }>
+      <SignInContent />
+    </Suspense>
   );
 }

@@ -1,11 +1,19 @@
-import { getDb, generateId, now, TagRow, ArticleTagRow } from "../index";
+import { createClient } from "@/lib/supabase/server";
 
 export interface Tag {
   id: string;
   userId: string;
   name: string;
   color: string;
-  createdAt: number;
+  createdAt: string;
+}
+
+interface TagRow {
+  id: string;
+  user_id: string;
+  name: string;
+  color: string;
+  created_at: string;
 }
 
 function rowToTag(row: TagRow): Tag {
@@ -18,254 +26,304 @@ function rowToTag(row: TagRow): Tag {
   };
 }
 
-export function getTagsByUser(userId: string): Tag[] {
-  const db = getDb();
-  const rows = db
-    .prepare(
-      `
-      SELECT * FROM tags
-      WHERE user_id = ?
-      ORDER BY created_at ASC
-    `
-    )
-    .all(userId) as TagRow[];
+export async function getTagsByUser(userId: string): Promise<Tag[]> {
+  const supabase = await createClient();
 
-  return rows.map(rowToTag);
+  const { data, error } = await supabase
+    .from("tags")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return (data || []).map(rowToTag);
 }
 
-export function getTagById(tagId: string, userId: string): Tag | null {
-  const db = getDb();
-  const row = db
-    .prepare(
-      `
-      SELECT * FROM tags
-      WHERE id = ? AND user_id = ?
-    `
-    )
-    .get(tagId, userId) as TagRow | undefined;
+export async function getTagById(
+  tagId: string,
+  userId: string
+): Promise<Tag | null> {
+  const supabase = await createClient();
 
-  return row ? rowToTag(row) : null;
+  const { data, error } = await supabase
+    .from("tags")
+    .select("*")
+    .eq("id", tagId)
+    .eq("user_id", userId)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw error;
+  }
+  return data ? rowToTag(data) : null;
 }
 
-export function getTagByName(name: string, userId: string): Tag | null {
-  const db = getDb();
-  const row = db
-    .prepare(
-      `
-      SELECT * FROM tags
-      WHERE name = ? AND user_id = ?
-    `
-    )
-    .get(name, userId) as TagRow | undefined;
+export async function getTagByName(
+  name: string,
+  userId: string
+): Promise<Tag | null> {
+  const supabase = await createClient();
 
-  return row ? rowToTag(row) : null;
+  const { data, error } = await supabase
+    .from("tags")
+    .select("*")
+    .eq("name", name)
+    .eq("user_id", userId)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw error;
+  }
+  return data ? rowToTag(data) : null;
 }
 
-export function createTag(
+export async function createTag(
   userId: string,
   data: {
     name: string;
     color: string;
   }
-): Tag {
-  const db = getDb();
-  const id = generateId();
-  const createdAt = now();
+): Promise<Tag> {
+  const supabase = await createClient();
 
-  db.prepare(
-    `
-    INSERT INTO tags (id, user_id, name, color, created_at)
-    VALUES (?, ?, ?, ?, ?)
-  `
-  ).run(id, userId, data.name, data.color, createdAt);
+  const { data: tag, error } = await supabase
+    .from("tags")
+    .insert({
+      user_id: userId,
+      name: data.name,
+      color: data.color,
+    })
+    .select()
+    .single();
 
-  return {
-    id,
-    userId,
-    name: data.name,
-    color: data.color,
-    createdAt,
-  };
+  if (error) throw error;
+  return rowToTag(tag);
 }
 
-export function updateTag(
+export async function updateTag(
   tagId: string,
   userId: string,
   data: {
     name?: string;
     color?: string;
   }
-): Tag | null {
-  const db = getDb();
+): Promise<Tag | null> {
+  const supabase = await createClient();
 
-  const existing = getTagById(tagId, userId);
-  if (!existing) return null;
+  const updateData: Record<string, unknown> = {};
 
-  const updates: string[] = [];
-  const values: string[] = [];
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.color !== undefined) updateData.color = data.color;
 
-  if (data.name !== undefined) {
-    updates.push("name = ?");
-    values.push(data.name);
-  }
-  if (data.color !== undefined) {
-    updates.push("color = ?");
-    values.push(data.color);
+  if (Object.keys(updateData).length === 0) {
+    return getTagById(tagId, userId);
   }
 
-  if (updates.length > 0) {
-    values.push(tagId, userId);
-    db.prepare(
-      `UPDATE tags SET ${updates.join(", ")} WHERE id = ? AND user_id = ?`
-    ).run(...values);
-  }
+  const { data: tag, error } = await supabase
+    .from("tags")
+    .update(updateData)
+    .eq("id", tagId)
+    .eq("user_id", userId)
+    .select()
+    .single();
 
-  return getTagById(tagId, userId);
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw error;
+  }
+  return tag ? rowToTag(tag) : null;
 }
 
-export function deleteTag(tagId: string, userId: string): boolean {
-  const db = getDb();
+export async function deleteTag(
+  tagId: string,
+  userId: string
+): Promise<boolean> {
+  const supabase = await createClient();
 
-  // article_tags will be deleted via CASCADE
-  const result = db
-    .prepare("DELETE FROM tags WHERE id = ? AND user_id = ?")
-    .run(tagId, userId);
+  const { error, count } = await supabase
+    .from("tags")
+    .delete()
+    .eq("id", tagId)
+    .eq("user_id", userId);
 
-  return result.changes > 0;
+  if (error) throw error;
+  return (count ?? 0) > 0;
 }
 
-export function getArticleTags(articleId: string, userId: string): Tag[] {
-  const db = getDb();
-  const rows = db
-    .prepare(
+export async function getArticleTags(
+  articleId: string,
+  userId: string
+): Promise<Tag[]> {
+  const supabase = await createClient();
+
+  // First get the article state id
+  const { data: state } = await supabase
+    .from("article_states")
+    .select("id")
+    .eq("article_id", articleId)
+    .eq("user_id", userId)
+    .single();
+
+  if (!state) return [];
+
+  // Then get tags via article_tags junction
+  const { data, error } = await supabase
+    .from("article_tags")
+    .select(
       `
-      SELECT t.* FROM tags t
-      JOIN article_tags at ON at.tag_id = t.id
-      JOIN article_states s ON s.id = at.article_state_id
-      WHERE s.article_id = ? AND s.user_id = ?
+      tag_id,
+      tags(*)
     `
     )
-    .all(articleId, userId) as TagRow[];
+    .eq("article_state_id", state.id);
 
-  return rows.map(rowToTag);
+  if (error) throw error;
+
+  return (data || [])
+    .map((row) => (row.tags ? rowToTag(row.tags as unknown as TagRow) : null))
+    .filter((tag): tag is Tag => tag !== null);
 }
 
-export function setArticleTags(
+export async function setArticleTags(
   articleId: string,
   userId: string,
   tagIds: string[]
-): void {
-  const db = getDb();
-  const timestamp = now();
-
-  // First, ensure article state exists
-  let stateId = db
-    .prepare(
-      "SELECT id FROM article_states WHERE article_id = ? AND user_id = ?"
-    )
-    .get(articleId, userId) as { id: string } | undefined;
-
-  if (!stateId) {
-    const newStateId = generateId();
-    db.prepare(
-      "INSERT INTO article_states (id, user_id, article_id) VALUES (?, ?, ?)"
-    ).run(newStateId, userId, articleId);
-    stateId = { id: newStateId };
-  }
-
-  const updateTags = db.transaction(() => {
-    // Remove all existing tags
-    db.prepare(
-      "DELETE FROM article_tags WHERE article_state_id = ?"
-    ).run(stateId!.id);
-
-    // Add new tags
-    const insert = db.prepare(
-      "INSERT INTO article_tags (id, article_state_id, tag_id, created_at) VALUES (?, ?, ?, ?)"
-    );
-
-    for (const tagId of tagIds) {
-      insert.run(generateId(), stateId!.id, tagId, timestamp);
-    }
-  });
-
-  updateTags();
-}
-
-export function addTagToArticle(
-  articleId: string,
-  userId: string,
-  tagId: string
-): void {
-  const db = getDb();
-  const timestamp = now();
+): Promise<void> {
+  const supabase = await createClient();
 
   // Ensure article state exists
-  let stateId = db
-    .prepare(
-      "SELECT id FROM article_states WHERE article_id = ? AND user_id = ?"
-    )
-    .get(articleId, userId) as { id: string } | undefined;
+  let { data: state } = await supabase
+    .from("article_states")
+    .select("id")
+    .eq("article_id", articleId)
+    .eq("user_id", userId)
+    .single();
 
-  if (!stateId) {
-    const newStateId = generateId();
-    db.prepare(
-      "INSERT INTO article_states (id, user_id, article_id) VALUES (?, ?, ?)"
-    ).run(newStateId, userId, articleId);
-    stateId = { id: newStateId };
+  if (!state) {
+    const { data: newState } = await supabase
+      .from("article_states")
+      .insert({
+        user_id: userId,
+        article_id: articleId,
+      })
+      .select("id")
+      .single();
+    state = newState;
   }
 
-  // Check if tag already added
-  const existing = db
-    .prepare(
-      "SELECT 1 FROM article_tags WHERE article_state_id = ? AND tag_id = ?"
-    )
-    .get(stateId.id, tagId);
+  if (!state) return;
 
-  if (!existing) {
-    db.prepare(
-      "INSERT INTO article_tags (id, article_state_id, tag_id, created_at) VALUES (?, ?, ?, ?)"
-    ).run(generateId(), stateId.id, tagId, timestamp);
+  // Remove all existing tags
+  await supabase
+    .from("article_tags")
+    .delete()
+    .eq("article_state_id", state.id);
+
+  // Add new tags
+  if (tagIds.length > 0) {
+    const insertData = tagIds.map((tagId) => ({
+      article_state_id: state!.id,
+      tag_id: tagId,
+    }));
+
+    await supabase.from("article_tags").insert(insertData);
   }
 }
 
-export function removeTagFromArticle(
+export async function addTagToArticle(
   articleId: string,
   userId: string,
   tagId: string
-): void {
-  const db = getDb();
+): Promise<void> {
+  const supabase = await createClient();
 
-  db.prepare(
-    `
-    DELETE FROM article_tags
-    WHERE tag_id = ? AND article_state_id IN (
-      SELECT id FROM article_states
-      WHERE article_id = ? AND user_id = ?
-    )
-  `
-  ).run(tagId, articleId, userId);
+  // Ensure article state exists
+  let { data: state } = await supabase
+    .from("article_states")
+    .select("id")
+    .eq("article_id", articleId)
+    .eq("user_id", userId)
+    .single();
+
+  if (!state) {
+    const { data: newState } = await supabase
+      .from("article_states")
+      .insert({
+        user_id: userId,
+        article_id: articleId,
+      })
+      .select("id")
+      .single();
+    state = newState;
+  }
+
+  if (!state) return;
+
+  // Check if tag already exists
+  const { data: existing } = await supabase
+    .from("article_tags")
+    .select("id")
+    .eq("article_state_id", state.id)
+    .eq("tag_id", tagId)
+    .single();
+
+  if (!existing) {
+    await supabase.from("article_tags").insert({
+      article_state_id: state.id,
+      tag_id: tagId,
+    });
+  }
 }
 
-export function getArticleTagsMap(userId: string): Record<string, string[]> {
-  const db = getDb();
-  const rows = db
-    .prepare(
+export async function removeTagFromArticle(
+  articleId: string,
+  userId: string,
+  tagId: string
+): Promise<void> {
+  const supabase = await createClient();
+
+  // Get article state id
+  const { data: state } = await supabase
+    .from("article_states")
+    .select("id")
+    .eq("article_id", articleId)
+    .eq("user_id", userId)
+    .single();
+
+  if (!state) return;
+
+  await supabase
+    .from("article_tags")
+    .delete()
+    .eq("article_state_id", state.id)
+    .eq("tag_id", tagId);
+}
+
+export async function getArticleTagsMap(
+  userId: string
+): Promise<Record<string, string[]>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("article_states")
+    .select(
       `
-      SELECT s.article_id, at.tag_id
-      FROM article_tags at
-      JOIN article_states s ON s.id = at.article_state_id
-      WHERE s.user_id = ?
+      article_id,
+      article_tags(tag_id)
     `
     )
-    .all(userId) as { article_id: string; tag_id: string }[];
+    .eq("user_id", userId);
+
+  if (error) throw error;
 
   const map: Record<string, string[]> = {};
-  for (const row of rows) {
-    if (!map[row.article_id]) {
-      map[row.article_id] = [];
+  for (const row of data || []) {
+    const tagIds = (row.article_tags || []).map((at) => at.tag_id);
+    if (tagIds.length > 0) {
+      map[row.article_id] = tagIds;
     }
-    map[row.article_id].push(row.tag_id);
   }
 
   return map;

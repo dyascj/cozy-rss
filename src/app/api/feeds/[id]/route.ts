@@ -13,7 +13,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const feed = feedRepo.getFeedById(id, user.id);
+    const feed = await feedRepo.getFeedById(id, user.id);
 
     if (!feed) {
       return NextResponse.json({ error: "Feed not found" }, { status: 404 });
@@ -42,7 +42,7 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    const feed = feedRepo.updateFeed(id, user.id, body);
+    const feed = await feedRepo.updateFeed(id, user.id, body);
 
     if (!feed) {
       return NextResponse.json({ error: "Feed not found" }, { status: 404 });
@@ -69,7 +69,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const deleted = feedRepo.deleteFeed(id, user.id);
+    const deleted = await feedRepo.deleteFeed(id, user.id);
 
     if (!deleted) {
       return NextResponse.json({ error: "Feed not found" }, { status: 404 });

@@ -16,9 +16,20 @@ export async function PUT(
     const body = await request.json();
     const { isRead, isStarred, isReadLater, article } = body;
 
+    // Determine the actual article ID to use
+    let articleId = id;
+
     // If article data is provided, ensure the article exists in the database
     if (article) {
-      articleRepo.ensureArticleExists({
+      // Convert publishedAt timestamp to ISO string if it's a number
+      const publishedAt = article.publishedAt
+        ? typeof article.publishedAt === "number"
+          ? new Date(article.publishedAt).toISOString()
+          : article.publishedAt
+        : undefined;
+
+      // ensureArticleExists returns the actual article ID (which may differ if article already exists)
+      articleId = await articleRepo.ensureArticleExists({
         id,
         feedId: article.feedId,
         guid: article.guid || id,
@@ -28,11 +39,11 @@ export async function PUT(
         summary: article.summary,
         author: article.author,
         imageUrl: article.imageUrl,
-        publishedAt: article.publishedAt,
+        publishedAt,
       });
     }
 
-    const state = articleRepo.updateArticleState(id, user.id, {
+    const state = await articleRepo.updateArticleState(articleId, user.id, {
       isRead,
       isStarred,
       isReadLater,

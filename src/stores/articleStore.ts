@@ -54,15 +54,9 @@ interface ArticleActions {
   reset: () => void;
 }
 
-function generateArticleId(feedId: string, guid: string): string {
-  const str = `${feedId}:${guid}`;
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash).toString(36);
+function generateArticleId(): string {
+  // Generate a proper UUID for database compatibility
+  return crypto.randomUUID();
 }
 
 const initialState: ArticleState = {
@@ -218,7 +212,11 @@ export const useArticleStore = create<ArticleState & ArticleActions>()(
         let addedCount = 0;
 
         for (const article of newArticles) {
-          const id = generateArticleId(feedId, article.guid);
+          // Check if article already exists by guid
+          const existingId = Object.keys(updatedArticles).find(
+            (id) => updatedArticles[id].feedId === feedId && updatedArticles[id].guid === article.guid
+          );
+          const id = existingId || generateArticleId();
 
           if (!updatedArticles[id]) {
             updatedArticles[id] = {

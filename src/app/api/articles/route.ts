@@ -48,7 +48,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updated = articleRepo.batchUpdateArticleStates(
+    const updated = await articleRepo.batchUpdateArticleStates(
       user.id,
       articleIds,
       updateData
@@ -82,9 +82,9 @@ export async function GET(request: NextRequest) {
     let articles;
 
     if (feedId) {
-      articles = articleRepo.getArticlesByFeed(feedId, user.id, limit);
+      articles = await articleRepo.getArticlesByFeed(feedId, user.id, limit);
     } else {
-      articles = articleRepo.getArticlesByUser(user.id, {
+      articles = await articleRepo.getArticlesByUser(user.id, {
         isStarred: isStarred || undefined,
         isReadLater: isReadLater || undefined,
         isUnread: isUnread || undefined,
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform to match existing store format
-    const articlesMap: Record<string, typeof articles[0]> = {};
+    const articlesMap: Record<string, (typeof articles)[0]> = {};
     const articlesByFeed: Record<string, string[]> = {};
     const starredArticles: string[] = [];
     const readLaterArticles: string[] = [];

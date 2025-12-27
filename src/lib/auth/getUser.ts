@@ -1,15 +1,43 @@
-import { cookies } from "next/headers";
-import { getUserBySession, User } from "./session";
+import { createClient } from "@/lib/supabase/server";
+
+export interface User {
+  id: string;
+  email: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  isAdmin: boolean;
+}
 
 export async function getCurrentUser(): Promise<User | null> {
-  const cookieStore = await cookies();
-  const sessionId = cookieStore.get("session")?.value;
+  const supabase = await createClient();
 
-  if (!sessionId) {
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+
+  if (!authUser) {
     return null;
   }
 
-  return getUserBySession(sessionId);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", authUser.id)
+    .single();
+
+  if (!profile) {
+    return null;
+  }
+
+  return {
+    id: profile.id,
+    email: authUser.email || "",
+    username: profile.username || "",
+    displayName: profile.display_name,
+    avatarUrl: profile.avatar_url,
+    isAdmin: profile.is_admin || false,
+  };
 }
 
 export async function requireUser(): Promise<User> {

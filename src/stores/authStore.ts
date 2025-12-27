@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { createClient } from "@/lib/supabase/client";
 import { useFeedStore } from "./feedStore";
 import { useArticleStore } from "./articleStore";
 import { useTagStore } from "./tagStore";
@@ -8,9 +9,11 @@ import { useSettingsStore } from "./settingsStore";
 
 export interface User {
   id: string;
+  email: string;
   username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
   isAdmin: boolean;
-  createdAt?: number;
 }
 
 interface AuthState {
@@ -22,8 +25,6 @@ interface AuthState {
 }
 
 interface AuthActions {
-  signIn: (username: string, password: string) => Promise<boolean>;
-  signUp: (username: string, password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   checkSession: () => Promise<void>;
   clearError: () => void;
@@ -44,81 +45,12 @@ export const useAuthStore = create<AuthState & AuthActions>()((set, get) => ({
   sessionChecked: false,
   error: null,
 
-  signIn: async (username: string, password: string) => {
-    set({ isLoading: true, error: null });
-
-    try {
-      const response = await fetch("/api/auth/signin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        set({ isLoading: false, error: data.error || "Sign in failed" });
-        return false;
-      }
-
-      set({
-        user: data.user,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-      });
-
-      return true;
-    } catch (error) {
-      set({
-        isLoading: false,
-        error: "An error occurred during sign in",
-      });
-      console.error("Sign in error:", error);
-      return false;
-    }
-  },
-
-  signUp: async (username: string, password: string) => {
-    set({ isLoading: true, error: null });
-
-    try {
-      const response = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        set({ isLoading: false, error: data.error || "Sign up failed" });
-        return false;
-      }
-
-      set({
-        user: data.user,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-      });
-
-      return true;
-    } catch (error) {
-      console.error("Sign up error:", error);
-      set({
-        isLoading: false,
-        error: "An error occurred during sign up",
-      });
-      return false;
-    }
-  },
-
   signOut: async () => {
     set({ isLoading: true });
 
     try {
-      await fetch("/api/auth/signout", { method: "POST" });
+      const supabase = createClient();
+      await supabase.auth.signOut();
     } catch (error) {
       console.error("Sign out error:", error);
     } finally {

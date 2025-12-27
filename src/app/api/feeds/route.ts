@@ -10,12 +10,12 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const feeds = feedRepo.getFeedsByUser(user.id);
-    const folders = folderRepo.getFoldersByUser(user.id);
+    const feeds = await feedRepo.getFeedsByUser(user.id);
+    const folders = await folderRepo.getFoldersByUser(user.id);
 
     // Transform to match existing store format
-    const feedsMap: Record<string, typeof feeds[0]> = {};
-    const foldersMap: Record<string, typeof folders[0]> = {};
+    const feedsMap: Record<string, (typeof feeds)[0]> = {};
+    const foldersMap: Record<string, (typeof folders)[0]> = {};
     const feedOrder: Record<string, string[]> = { root: [] };
     const folderOrder: string[] = [];
 
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if feed already exists
-    const existing = feedRepo.getFeedByUrl(url, user.id);
+    const existing = await feedRepo.getFeedByUrl(url, user.id);
     if (existing) {
       return NextResponse.json(
         { error: "Feed already exists", feed: existing },
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const feed = feedRepo.createFeed(user.id, {
+    const feed = await feedRepo.createFeed(user.id, {
       url,
       title,
       description,

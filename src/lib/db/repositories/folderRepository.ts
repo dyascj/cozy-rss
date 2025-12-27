@@ -1,4 +1,4 @@
-import { getDb, generateId, now, FolderRow } from "../index";
+import { createClient } from "@/lib/supabase/server";
 
 export interface Folder {
   id: string;
@@ -8,7 +8,18 @@ export interface Folder {
   orderIndex: number;
   isExpanded: boolean;
   parentFolderId: string | null;
-  createdAt: number;
+  createdAt: string;
+}
+
+interface FolderRow {
+  id: string;
+  user_id: string;
+  name: string;
+  icon: string | null;
+  order_index: number;
+  is_expanded: boolean;
+  parent_folder_id: string | null;
+  created_at: string;
 }
 
 function rowToFolder(row: FolderRow): Folder {
@@ -18,92 +29,85 @@ function rowToFolder(row: FolderRow): Folder {
     name: row.name,
     icon: row.icon,
     orderIndex: row.order_index,
-    isExpanded: row.is_expanded === 1,
+    isExpanded: row.is_expanded,
     parentFolderId: row.parent_folder_id,
     createdAt: row.created_at,
   };
 }
 
-export function getFoldersByUser(userId: string): Folder[] {
-  const db = getDb();
-  const rows = db
-    .prepare(
-      `
-      SELECT * FROM folders
-      WHERE user_id = ?
-      ORDER BY order_index ASC
-    `
-    )
-    .all(userId) as FolderRow[];
+export async function getFoldersByUser(userId: string): Promise<Folder[]> {
+  const supabase = await createClient();
 
-  return rows.map(rowToFolder);
+  const { data, error } = await supabase
+    .from("folders")
+    .select("*")
+    .eq("user_id", userId)
+    .order("order_index", { ascending: true });
+
+  if (error) throw error;
+  return (data || []).map(rowToFolder);
 }
 
-export function getFolderById(folderId: string, userId: string): Folder | null {
-  const db = getDb();
-  const row = db
-    .prepare(
-      `
-      SELECT * FROM folders
-      WHERE id = ? AND user_id = ?
-    `
-    )
-    .get(folderId, userId) as FolderRow | undefined;
+export async function getFolderById(
+  folderId: string,
+  userId: string
+): Promise<Folder | null> {
+  const supabase = await createClient();
 
-  return row ? rowToFolder(row) : null;
+  const { data, error } = await supabase
+    .from("folders")
+    .select("*")
+    .eq("id", folderId)
+    .eq("user_id", userId)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw error;
+  }
+  return data ? rowToFolder(data) : null;
 }
 
-export function createFolder(
+export async function createFolder(
   userId: string,
   data: {
     name: string;
     icon?: string;
     parentFolderId?: string | null;
   }
-): Folder {
-  const db = getDb();
-  const id = generateId();
-  const createdAt = now();
+): Promise<Folder> {
+  const supabase = await createClient();
 
   // Get the next order index
-  const maxOrder = db
-    .prepare(
-      `
-      SELECT COALESCE(MAX(order_index), -1) + 1 as next_order
-      FROM folders
-      WHERE user_id = ? AND parent_folder_id IS ?
-    `
-    )
-    .get(userId, data.parentFolderId || null) as { next_order: number };
+  const { data: maxOrderData } = await supabase
+    .from("folders")
+    .select("order_index")
+    .eq("user_id", userId)
+    .is("parent_folder_id", data.parentFolderId || null)
+    .order("order_index", { ascending: false })
+    .limit(1)
+    .single();
 
-  db.prepare(
-    `
-    INSERT INTO folders (id, user_id, name, icon, order_index, is_expanded, parent_folder_id, created_at)
-    VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-  `
-  ).run(
-    id,
-    userId,
-    data.name,
-    data.icon || null,
-    maxOrder.next_order,
-    data.parentFolderId || null,
-    createdAt
-  );
+  const nextOrder = (maxOrderData?.order_index ?? -1) + 1;
 
-  return {
-    id,
-    userId,
-    name: data.name,
-    icon: data.icon || null,
-    orderIndex: maxOrder.next_order,
-    isExpanded: true,
-    parentFolderId: data.parentFolderId || null,
-    createdAt,
-  };
+  const { data: folder, error } = await supabase
+    .from("folders")
+    .insert({
+      user_id: userId,
+      name: data.name,
+      icon: data.icon || null,
+      order_index: nextOrder,
+      is_expanded: true,
+      parent_folder_id: data.parentFolderId || null,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return rowToFolder(folder);
 }
 
-export function updateFolder(
+export async function updateFolder(
   folderId: string,
   userId: string,
   data: {
@@ -113,92 +117,82 @@ export function updateFolder(
     parentFolderId?: string | null;
     orderIndex?: number;
   }
-): Folder | null {
-  const db = getDb();
+): Promise<Folder | null> {
+  const supabase = await createClient();
 
-  const existing = getFolderById(folderId, userId);
-  if (!existing) return null;
+  const updateData: Record<string, unknown> = {};
 
-  const updates: string[] = [];
-  const values: (string | number | null)[] = [];
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.icon !== undefined) updateData.icon = data.icon;
+  if (data.isExpanded !== undefined) updateData.is_expanded = data.isExpanded;
+  if (data.parentFolderId !== undefined)
+    updateData.parent_folder_id = data.parentFolderId;
+  if (data.orderIndex !== undefined) updateData.order_index = data.orderIndex;
 
-  if (data.name !== undefined) {
-    updates.push("name = ?");
-    values.push(data.name);
-  }
-  if (data.icon !== undefined) {
-    updates.push("icon = ?");
-    values.push(data.icon);
-  }
-  if (data.isExpanded !== undefined) {
-    updates.push("is_expanded = ?");
-    values.push(data.isExpanded ? 1 : 0);
-  }
-  if (data.parentFolderId !== undefined) {
-    updates.push("parent_folder_id = ?");
-    values.push(data.parentFolderId);
-  }
-  if (data.orderIndex !== undefined) {
-    updates.push("order_index = ?");
-    values.push(data.orderIndex);
+  if (Object.keys(updateData).length === 0) {
+    return getFolderById(folderId, userId);
   }
 
-  if (updates.length > 0) {
-    values.push(folderId, userId);
-    db.prepare(
-      `UPDATE folders SET ${updates.join(", ")} WHERE id = ? AND user_id = ?`
-    ).run(...values);
-  }
+  const { data: folder, error } = await supabase
+    .from("folders")
+    .update(updateData)
+    .eq("id", folderId)
+    .eq("user_id", userId)
+    .select()
+    .single();
 
-  return getFolderById(folderId, userId);
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw error;
+  }
+  return folder ? rowToFolder(folder) : null;
 }
 
-export function deleteFolder(folderId: string, userId: string): boolean {
-  const db = getDb();
+export async function deleteFolder(
+  folderId: string,
+  userId: string
+): Promise<boolean> {
+  const supabase = await createClient();
 
   // Move feeds in this folder to root (folder_id = null)
-  db.prepare(
-    `
-    UPDATE feeds SET folder_id = NULL
-    WHERE folder_id = ? AND user_id = ?
-  `
-  ).run(folderId, userId);
+  await supabase
+    .from("feeds")
+    .update({ folder_id: null })
+    .eq("folder_id", folderId)
+    .eq("user_id", userId);
 
   // Move subfolders to root
-  db.prepare(
-    `
-    UPDATE folders SET parent_folder_id = NULL
-    WHERE parent_folder_id = ? AND user_id = ?
-  `
-  ).run(folderId, userId);
+  await supabase
+    .from("folders")
+    .update({ parent_folder_id: null })
+    .eq("parent_folder_id", folderId)
+    .eq("user_id", userId);
 
   // Delete the folder
-  const result = db
-    .prepare("DELETE FROM folders WHERE id = ? AND user_id = ?")
-    .run(folderId, userId);
+  const { error, count } = await supabase
+    .from("folders")
+    .delete()
+    .eq("id", folderId)
+    .eq("user_id", userId);
 
-  return result.changes > 0;
+  if (error) throw error;
+  return (count ?? 0) > 0;
 }
 
-export function reorderFolders(
+export async function reorderFolders(
   userId: string,
   folderIds: string[],
   parentFolderId: string | null
-): void {
-  const db = getDb();
+): Promise<void> {
+  const supabase = await createClient();
 
-  const updateOrder = db.prepare(
-    `
-    UPDATE folders SET order_index = ?, parent_folder_id = ?
-    WHERE id = ? AND user_id = ?
-  `
-  );
+  for (let i = 0; i < folderIds.length; i++) {
+    const { error } = await supabase
+      .from("folders")
+      .update({ order_index: i, parent_folder_id: parentFolderId })
+      .eq("id", folderIds[i])
+      .eq("user_id", userId);
 
-  const reorder = db.transaction(() => {
-    folderIds.forEach((folderId, index) => {
-      updateOrder.run(index, parentFolderId, folderId, userId);
-    });
-  });
-
-  reorder();
+    if (error) throw error;
+  }
 }
