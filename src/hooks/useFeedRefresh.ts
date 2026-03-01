@@ -8,6 +8,9 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { fetchAndParseFeed } from "@/lib/feed-parser";
 import { refreshTracker, RefreshStatus } from "@/lib/feed-cache";
 
+// Re-export for components that import from here
+export type { RefreshStatus };
+
 // Minimum time between full refreshes (prevents spam clicking)
 const MIN_REFRESH_INTERVAL = 30000; // 30 seconds
 
@@ -99,13 +102,7 @@ export function useFeedRefresh() {
   );
 
   /**
-   * Refresh all feeds with smart prioritization
-   *
-   * Priority order:
-   * 1. Currently selected feed (if any)
-   * 2. Feeds with errors (to retry)
-   * 3. Feeds not refreshed recently
-   * 4. Other feeds
+   * Refresh all feeds via server-side fetch, then reload articles from DB
    */
   const refreshAllFeeds = useCallback(
     async (options: { forceRefresh?: boolean } = {}) => {
@@ -113,11 +110,6 @@ export function useFeedRefresh() {
 
       // Check cooldown unless force refresh
       if (!options.forceRefresh && !refreshTracker.canRefreshAll(MIN_REFRESH_INTERVAL)) {
-        console.log(
-          `Refresh on cooldown, ${Math.ceil(
-            refreshTracker.getCooldown(MIN_REFRESH_INTERVAL) / 1000
-          )}s remaining`
-        );
         return;
       }
 
@@ -129,52 +121,18 @@ export function useFeedRefresh() {
       refreshTracker.startRefresh();
 
       try {
-        // Sort feeds by priority
-        const sortedFeedIds = [...feedIds].sort((a, b) => {
-          const feedA = feeds[a];
-          const feedB = feeds[b];
+        // Server-side refresh: fetches all feeds and stores articles in DB
+        await fetch("/api/feeds/refresh", { method: "POST" });
 
-          // Selected feed gets highest priority
-          if (a === selectedFeedId) return -1;
-          if (b === selectedFeedId) return 1;
-
-          // Feeds with errors get second priority (retry them)
-          if (feedA.lastError && !feedB.lastError) return -1;
-          if (!feedA.lastError && feedB.lastError) return 1;
-
-          // Then sort by last fetched time (oldest first)
-          const lastFetchA = feedA.lastFetched || 0;
-          const lastFetchB = feedB.lastFetched || 0;
-          return lastFetchA - lastFetchB;
-        });
-
-        // Assign priorities (higher number = higher priority)
-        const priorities: Record<string, number> = {};
-        sortedFeedIds.forEach((id, index) => {
-          priorities[id] = sortedFeedIds.length - index;
-        });
-
-        // Stagger feed refreshes to prevent thundering herd
-        // The request queue handles actual concurrency, but we stagger
-        // the *initiation* of requests for even smoother loading
-        const refreshPromises: Promise<void>[] = [];
-
-        for (let i = 0; i < sortedFeedIds.length; i++) {
-          const feedId = sortedFeedIds[i];
-
-          // Create staggered promise
-          const staggeredRefresh = new Promise<void>((resolve) => {
-            setTimeout(async () => {
-              await refreshFeed(feedId, priorities[feedId]);
-              resolve();
-            }, i * STAGGER_DELAY);
-          });
-
-          refreshPromises.push(staggeredRefresh);
+        // Reload articles from database into client store
+        const res = await fetch("/api/articles");
+        if (res.ok) {
+          const data = await res.json();
+          const { initialize } = useArticleStore.getState();
+          // Re-initialize to pick up new articles
+          useArticleStore.setState({ isInitialized: false, isLoading: false });
+          await initialize();
         }
-
-        // Wait for all refreshes to complete
-        await Promise.all(refreshPromises);
 
         refreshTracker.finishRefresh();
       } catch (error) {
@@ -186,7 +144,7 @@ export function useFeedRefresh() {
         setIsRefreshing(false);
       }
     },
-    [feeds, selectedFeedId, refreshFeed, setIsRefreshing]
+    [feeds, setIsRefreshing]
   );
 
   /**
@@ -197,7 +155,8 @@ export function useFeedRefresh() {
       setIsRefreshing(true);
       refreshTracker.startRefresh();
       try {
-        await refreshFeed(feedId, 100); // High priority for manual refresh
+        // Use server-side refresh for the single feed
+        await refreshFeed(feedId, 100);
         refreshTracker.finishRefresh();
       } catch (error) {
         refreshTracker.finishRefresh(

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/getUser";
 import * as feedRepo from "@/lib/db/repositories/feedRepository";
 import * as folderRepo from "@/lib/db/repositories/folderRepository";
+import { fetchAndStoreArticles } from "@/lib/feed-fetcher";
 
 export async function GET() {
   try {
@@ -107,7 +108,15 @@ export async function POST(request: NextRequest) {
       fetchInterval,
     });
 
-    return NextResponse.json({ feed });
+    // Fetch and store articles server-side
+    let articlesCreated = 0;
+    try {
+      articlesCreated = await fetchAndStoreArticles(feed.id, url);
+    } catch (err) {
+      console.error("Failed to fetch articles for new feed:", err);
+    }
+
+    return NextResponse.json({ feed, articlesCreated });
   } catch (error) {
     console.error("Error creating feed:", error);
     return NextResponse.json(
