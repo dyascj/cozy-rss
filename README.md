@@ -2,13 +2,30 @@
 
 A calm, focused RSS reader for your home server. No ads. No algorithms. No cloud dependencies. Just you and the content you choose.
 
+![CozyRSS Home](public/screenshots/home.png)
+
 ## Features
 
-- Subscribe to RSS, Atom, and JSON feeds
+### Read on your terms
+Subscribe to RSS, Atom, and JSON feeds from your favorite sites. Articles are displayed in a clean three-column layout with reader mode for distraction-free reading.
+
+### Discover new content
+Find new feeds with curated recommendations and automatic feed detection. Just paste a website URL and CozyRSS will find its feed.
+
+![Discover](public/screenshots/discover.png)
+
+### Preview before you subscribe
+See recent articles and feed details before committing. One click to subscribe.
+
+![Subscribe](public/screenshots/subscribe.png)
+
+### Track your reading
+Reading stats, streaks, and milestones keep you motivated. See your most-read feeds and celebrate your progress.
+
+![Insights](public/screenshots/insights.png)
+
+### And more
 - Organize feeds with folders and tags
-- Reader mode for distraction-free reading
-- Feed discovery to find new content
-- Reading stats and milestones
 - OPML import/export
 - Dark mode and customizable themes
 - Keyboard shortcuts
