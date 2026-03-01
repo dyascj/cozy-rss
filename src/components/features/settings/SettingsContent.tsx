@@ -4,9 +4,10 @@ import { useRef, useState } from "react";
 import { useSettingsStore, ThemeMode, SwipeAction } from "@/stores/settingsStore";
 import { useFeedStore } from "@/stores/feedStore";
 import { useArticleStore } from "@/stores/articleStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useUIStore } from "@/stores/uiStore";
 import { parseOPML, flattenOPML } from "@/lib/opml/parser";
 import { downloadOPML } from "@/lib/opml/generator";
-import { fetchAndParseFeed } from "@/lib/feed-parser";
 import {
   LIGHT_THEMES,
   DARK_THEMES,
@@ -18,9 +19,10 @@ import { cn } from "@/utils/cn";
 
 interface SettingsContentProps {
   showKeyboardShortcuts?: boolean;
+  showAccount?: boolean;
 }
 
-export function SettingsContent({ showKeyboardShortcuts = true }: SettingsContentProps) {
+export function SettingsContent({ showKeyboardShortcuts = true, showAccount = true }: SettingsContentProps) {
   const {
     themeMode,
     setThemeMode,
@@ -39,7 +41,9 @@ export function SettingsContent({ showKeyboardShortcuts = true }: SettingsConten
     setSwipeRightAction,
   } = useSettingsStore();
   const { feeds, folders, feedOrder, addFeed, addFolder } = useFeedStore();
-  const { addArticles } = useArticleStore();
+  const { fetchArticlesForFeed } = useArticleStore();
+  const { user, signOut } = useAuthStore();
+  const { closeSettingsModal } = useUIStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -146,15 +150,13 @@ export function SettingsContent({ showKeyboardShortcuts = true }: SettingsConten
         try {
           setImportStatus(`Importing ${feedData.title}... (${imported + 1}/${flatFeeds.length})`);
 
-          const parsed = await fetchAndParseFeed(feedData.url);
           const folderId = feedData.folderName ? folderMap[feedData.folderName] : null;
 
           const feedId = await addFeed({
             url: feedData.url,
-            title: parsed.title || feedData.title,
-            description: parsed.description,
-            siteUrl: parsed.siteUrl || feedData.siteUrl,
-            iconUrl: parsed.iconUrl,
+            title: feedData.title,
+            description: undefined,
+            siteUrl: feedData.siteUrl,
             folderId,
             lastFetched: Date.now(),
           });
@@ -163,24 +165,8 @@ export function SettingsContent({ showKeyboardShortcuts = true }: SettingsConten
             throw new Error("Failed to add feed");
           }
 
-          addArticles(
-            feedId,
-            parsed.items.map((item) => ({
-              feedId,
-              guid: item.guid,
-              title: item.title,
-              link: item.link,
-              author: item.author,
-              summary: item.summary,
-              content: item.content,
-              publishedAt: item.publishedAt,
-              fetchedAt: Date.now(),
-              isRead: false,
-              isStarred: false,
-              isReadLater: false,
-              imageUrl: item.imageUrl,
-            }))
-          );
+          // Server creates articles during addFeed — load them into client store
+          await fetchArticlesForFeed(feedId);
 
           imported++;
         } catch {
@@ -598,6 +584,33 @@ export function SettingsContent({ showKeyboardShortcuts = true }: SettingsConten
                 R
               </kbd>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Account Section */}
+      {showAccount && user && (
+        <div className="pt-6 mt-6 border-t border-border">
+          <label className="block text-sm font-medium mb-3">Account</label>
+          <div className="bg-cream-100 dark:bg-charcoal-800 rounded-xl p-4 border border-cream-200 dark:border-charcoal-700">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-sage-200 dark:bg-sage-800 flex items-center justify-center text-sage-700 dark:text-sage-300 font-medium">
+                {user.username?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{user.displayName || user.username}</p>
+                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                closeSettingsModal();
+                signOut();
+              }}
+              className="w-full px-4 py-2.5 rounded-xl text-sm bg-cream-200 dark:bg-charcoal-700 hover:bg-cream-300 dark:hover:bg-charcoal-600 transition-colors"
+            >
+              Sign Out
+            </button>
           </div>
         </div>
       )}

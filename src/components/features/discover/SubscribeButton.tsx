@@ -4,7 +4,6 @@ import { useState, useCallback } from "react";
 import { useFeedStore } from "@/stores/feedStore";
 import { useArticleStore } from "@/stores/articleStore";
 import { DiscoverFeed } from "@/types/discover";
-import { fetchAndParseFeed } from "@/lib/feed-parser";
 import { DoodleCheck, DoodlePlus, DoodleLoader } from "@/components/ui/DoodleIcon";
 import { cn } from "@/utils/cn";
 
@@ -20,7 +19,7 @@ export function SubscribeButton({
   onSuccess,
 }: SubscribeButtonProps) {
   const { feeds, addFeed } = useFeedStore();
-  const { addArticles } = useArticleStore();
+  const { fetchArticlesForFeed } = useArticleStore();
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,14 +39,12 @@ export function SubscribeButton({
       setError(null);
 
       try {
-        const parsedFeed = await fetchAndParseFeed(feed.feedUrl, { maxItems: 50 });
-
         const feedId = await addFeed({
           url: feed.feedUrl,
-          title: parsedFeed.title || feed.name,
-          description: parsedFeed.description || feed.description,
-          siteUrl: parsedFeed.siteUrl || feed.siteUrl,
-          iconUrl: parsedFeed.iconUrl || feed.iconUrl,
+          title: feed.name,
+          description: feed.description,
+          siteUrl: feed.siteUrl,
+          iconUrl: feed.iconUrl,
           folderId: null,
           lastFetched: Date.now(),
         });
@@ -56,37 +53,14 @@ export function SubscribeButton({
           throw new Error("Failed to add feed");
         }
 
-        const mappedArticles = parsedFeed.items.map((item) => ({
-          feedId,
-          guid: item.guid,
-          title: item.title,
-          link: item.link,
-          author: item.author,
-          summary: item.summary,
-          content: item.content,
-          publishedAt: item.publishedAt,
-          fetchedAt: Date.now(),
-          isRead: false,
-          isStarred: false,
-          isReadLater: false,
-          imageUrl: item.imageUrl,
-        }));
-
-        addArticles(feedId, mappedArticles);
-
-        // Persist to database
-        fetch("/api/articles", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ feedId, articles: mappedArticles }),
-        }).catch((err) => console.error("Failed to persist articles:", err));
+        // Load server-created articles into client store
+        await fetchArticlesForFeed(feedId);
 
         onSuccess?.();
       } catch (error) {
         console.error("Failed to subscribe:", error);
         const errorMessage = error instanceof Error ? error.message : "Failed to subscribe";
 
-        // Provide more helpful error messages
         if (errorMessage.includes("429") || errorMessage.includes("rate")) {
           setError("Rate limited. Try again in a few minutes.");
         } else if (errorMessage.includes("522") || errorMessage.includes("connection")) {
@@ -102,7 +76,7 @@ export function SubscribeButton({
         setIsSubscribing(false);
       }
     },
-    [feed, isSubscribed, isSubscribing, addFeed, addArticles, onSuccess]
+    [feed, isSubscribed, isSubscribing, addFeed, fetchArticlesForFeed, onSuccess]
   );
 
   if (isSubscribed) {

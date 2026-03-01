@@ -280,6 +280,13 @@ export function ArticleList({ hideHeader }: ArticleListProps = {}) {
   });
 
   const handleArticleClick = (articleId: string) => {
+    const article = articles[articleId];
+
+    // For articles with no content (e.g., YouTube), open link directly
+    if (article && !article.content?.trim() && !article.summary?.trim() && article.link) {
+      window.open(article.link, "_blank", "noopener,noreferrer");
+    }
+
     selectArticle(articleId);
     if (markAsReadOnSelect) {
       markAsRead(articleId);

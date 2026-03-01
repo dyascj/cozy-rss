@@ -10,9 +10,9 @@ import { DoodleClose, DoodleLoader, DoodleRss } from "@/components/ui/DoodleIcon
 import { cn } from "@/utils/cn";
 
 export function AddFeedModal() {
-  const { isAddFeedModalOpen, closeAddFeedModal } = useUIStore();
+  const { isAddFeedModalOpen, closeAddFeedModal, selectFeed } = useUIStore();
   const { addFeed, folders, folderOrder } = useFeedStore();
-  const { addArticles } = useArticleStore();
+  const { fetchArticlesForFeed } = useArticleStore();
 
   const [url, setUrl] = useState("");
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -71,14 +71,10 @@ export function AddFeedModal() {
     setError(null);
 
     try {
-      const feed = await fetchAndParseFeed(url);
-
       const feedId = await addFeed({
         url,
-        title: feed.title,
-        description: feed.description,
-        siteUrl: feed.siteUrl,
-        iconUrl: feed.iconUrl,
+        title: preview.title,
+        description: preview.description,
         folderId: selectedFolderId,
         lastFetched: Date.now(),
       });
@@ -87,33 +83,12 @@ export function AddFeedModal() {
         throw new Error("Failed to add feed");
       }
 
-      const mappedArticles = feed.items.map((item) => ({
-        feedId,
-        guid: item.guid,
-        title: item.title,
-        link: item.link,
-        author: item.author,
-        summary: item.summary,
-        content: item.content,
-        publishedAt: item.publishedAt,
-        fetchedAt: Date.now(),
-        isRead: false,
-        isStarred: false,
-        isReadLater: false,
-        imageUrl: item.imageUrl,
-      }));
+      // Load server-created articles into client store
+      await fetchArticlesForFeed(feedId);
 
-      // Add to client store
-      addArticles(feedId, mappedArticles);
+      // Select the new feed so user sees articles immediately
+      selectFeed(feedId);
 
-      // Persist to database
-      await fetch("/api/articles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feedId, articles: mappedArticles }),
-      });
-
-      // Reset and close
       setUrl("");
       setSelectedFolderId(null);
       setPreview(null);

@@ -4,111 +4,30 @@ import { useEffect, useCallback, useRef, useState } from "react";
 import { useFeedStore } from "@/stores/feedStore";
 import { useArticleStore } from "@/stores/articleStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useSettingsStore } from "@/stores/settingsStore";
-import { fetchAndParseFeed } from "@/lib/feed-parser";
 import { refreshTracker, RefreshStatus } from "@/lib/feed-cache";
 
-// Re-export for components that import from here
 export type { RefreshStatus };
 
-// Minimum time between full refreshes (prevents spam clicking)
 const MIN_REFRESH_INTERVAL = 30000; // 30 seconds
 
-// Stagger delay between starting feed refreshes on login
-const STAGGER_DELAY = 200; // 200ms between each feed start
-
 export function useFeedRefresh() {
-  const { feeds, updateFeed, isInitialized: feedsInitialized } = useFeedStore();
-  const { addArticles, pruneArticles } = useArticleStore();
-  const { setIsRefreshing, selectedFeedId } = useUIStore();
-  const { maxArticlesPerFeed } = useSettingsStore();
+  const { feeds, isInitialized: feedsInitialized } = useFeedStore();
+  const { setIsRefreshing } = useUIStore();
   const isRefreshing = useRef(false);
-  const lastRefreshedFeedCount = useRef(0);
   const hasInitialRefresh = useRef(false);
 
-  // Track refresh status for UI
   const [refreshStatus, setRefreshStatus] = useState<RefreshStatus>(
     refreshTracker.getStatus()
   );
 
-  // Subscribe to refresh status updates
   useEffect(() => {
     return refreshTracker.subscribe(setRefreshStatus);
   }, []);
 
-  /**
-   * Refresh a single feed
-   */
-  const refreshFeed = useCallback(
-    async (feedId: string, priority = 0) => {
-      const feed = feeds[feedId];
-      if (!feed) return;
-
-      try {
-        const parsedFeed = await fetchAndParseFeed(feed.url, {
-          feedTitle: feed.title,
-          priority,
-        });
-
-        const mappedArticles = parsedFeed.items.map((item) => ({
-          feedId,
-          guid: item.guid,
-          title: item.title,
-          link: item.link,
-          author: item.author,
-          summary: item.summary,
-          content: item.content,
-          publishedAt: item.publishedAt,
-          fetchedAt: Date.now(),
-          isRead: false,
-          isStarred: false,
-          isReadLater: false,
-          imageUrl: item.imageUrl,
-        }));
-
-        // Add to client store
-        addArticles(feedId, mappedArticles);
-
-        // Persist to database
-        fetch("/api/articles", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            feedId,
-            articles: mappedArticles,
-          }),
-        }).catch((err) => console.error("Failed to persist articles:", err));
-
-        // Prune old articles
-        pruneArticles(feedId, maxArticlesPerFeed);
-
-        // Update feed metadata
-        updateFeed(feedId, {
-          lastFetched: Date.now(),
-          lastError: undefined,
-          title: parsedFeed.title || feed.title,
-          description: parsedFeed.description,
-          siteUrl: parsedFeed.siteUrl,
-          iconUrl: parsedFeed.iconUrl || feed.iconUrl,
-        });
-      } catch (error) {
-        updateFeed(feedId, {
-          lastError:
-            error instanceof Error ? error.message : "Failed to refresh",
-        });
-      }
-    },
-    [feeds, addArticles, pruneArticles, updateFeed, maxArticlesPerFeed]
-  );
-
-  /**
-   * Refresh all feeds via server-side fetch, then reload articles from DB
-   */
   const refreshAllFeeds = useCallback(
     async (options: { forceRefresh?: boolean } = {}) => {
       if (isRefreshing.current) return;
 
-      // Check cooldown unless force refresh
       if (!options.forceRefresh && !refreshTracker.canRefreshAll(MIN_REFRESH_INTERVAL)) {
         return;
       }
@@ -121,18 +40,11 @@ export function useFeedRefresh() {
       refreshTracker.startRefresh();
 
       try {
-        // Server-side refresh: fetches all feeds and stores articles in DB
         await fetch("/api/feeds/refresh", { method: "POST" });
 
-        // Reload articles from database into client store
-        const res = await fetch("/api/articles");
-        if (res.ok) {
-          const data = await res.json();
-          const { initialize } = useArticleStore.getState();
-          // Re-initialize to pick up new articles
-          useArticleStore.setState({ isInitialized: false, isLoading: false });
-          await initialize();
-        }
+        // Re-initialize article store to pick up new articles from DB
+        useArticleStore.setState({ isInitialized: false, isLoading: false });
+        await useArticleStore.getState().initialize();
 
         refreshTracker.finishRefresh();
       } catch (error) {
@@ -147,16 +59,13 @@ export function useFeedRefresh() {
     [feeds, setIsRefreshing]
   );
 
-  /**
-   * Refresh a single feed (exposed for manual refresh of specific feed)
-   */
   const refreshSingleFeed = useCallback(
     async (feedId: string) => {
       setIsRefreshing(true);
       refreshTracker.startRefresh();
       try {
-        // Use server-side refresh for the single feed
-        await refreshFeed(feedId, 100);
+        await fetch("/api/feeds/refresh", { method: "POST" });
+        await useArticleStore.getState().fetchArticlesForFeed(feedId);
         refreshTracker.finishRefresh();
       } catch (error) {
         refreshTracker.finishRefresh(
@@ -166,41 +75,24 @@ export function useFeedRefresh() {
         setIsRefreshing(false);
       }
     },
-    [refreshFeed, setIsRefreshing]
+    [setIsRefreshing]
   );
 
   // Initial refresh when store is initialized
   useEffect(() => {
     const feedCount = Object.keys(feeds).length;
 
-    // Only do initial refresh once when:
-    // 1. Feeds store is initialized
-    // 2. There are feeds to refresh
-    // 3. We haven't done initial refresh yet
     if (
       feedsInitialized &&
       feedCount > 0 &&
       !hasInitialRefresh.current
     ) {
       hasInitialRefresh.current = true;
-      lastRefreshedFeedCount.current = feedCount;
 
-      // Small delay to let the UI render first
       const timeout = setTimeout(() => {
         refreshAllFeeds();
       }, 300);
       return () => clearTimeout(timeout);
-    }
-
-    // Also refresh when new feeds are added
-    if (
-      feedsInitialized &&
-      feedCount > lastRefreshedFeedCount.current
-    ) {
-      lastRefreshedFeedCount.current = feedCount;
-
-      // Only refresh the new feeds (not all)
-      // This is handled automatically by the add feed flow
     }
   }, [feeds, feedsInitialized, refreshAllFeeds]);
 
@@ -211,7 +103,6 @@ export function useFeedRefresh() {
     return () => window.removeEventListener("refresh-feeds", handleRefresh);
   }, [refreshAllFeeds]);
 
-  // Return useful values for components
   return {
     refreshAllFeeds,
     refreshSingleFeed,

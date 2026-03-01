@@ -339,11 +339,26 @@ export function ArticleContent({ onBack, hideToolbar }: ArticleContentProps = {}
                   }}
                 />
               </div>
-            ) : (
+            ) : sanitizedContent ? (
               <div
                 className="article-content prose prose-neutral dark:prose-invert max-w-none"
                 dangerouslySetInnerHTML={{ __html: sanitizedContent }}
               />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <p className="text-muted-foreground mb-4">
+                  No preview content available.
+                </p>
+                {article.link && (
+                  <button
+                    onClick={handleOpenInBrowser}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-accent-foreground rounded-xl hover:bg-accent/90 transition-colors shadow-soft text-sm font-medium"
+                  >
+                    <DoodleExternalLink size="sm" />
+                    Open in Browser
+                  </button>
+                )}
+              </div>
             )}
 
             {/* Footer */}
