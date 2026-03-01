@@ -47,25 +47,34 @@ export function useFeedRefresh() {
           priority,
         });
 
-        // Add new articles
-        addArticles(
+        const mappedArticles = parsedFeed.items.map((item) => ({
           feedId,
-          parsedFeed.items.map((item) => ({
+          guid: item.guid,
+          title: item.title,
+          link: item.link,
+          author: item.author,
+          summary: item.summary,
+          content: item.content,
+          publishedAt: item.publishedAt,
+          fetchedAt: Date.now(),
+          isRead: false,
+          isStarred: false,
+          isReadLater: false,
+          imageUrl: item.imageUrl,
+        }));
+
+        // Add to client store
+        addArticles(feedId, mappedArticles);
+
+        // Persist to database
+        fetch("/api/articles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             feedId,
-            guid: item.guid,
-            title: item.title,
-            link: item.link,
-            author: item.author,
-            summary: item.summary,
-            content: item.content,
-            publishedAt: item.publishedAt,
-            fetchedAt: Date.now(),
-            isRead: false,
-            isStarred: false,
-            isReadLater: false,
-            imageUrl: item.imageUrl,
-          }))
-        );
+            articles: mappedArticles,
+          }),
+        }).catch((err) => console.error("Failed to persist articles:", err));
 
         // Prune old articles
         pruneArticles(feedId, maxArticlesPerFeed);

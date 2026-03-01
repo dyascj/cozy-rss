@@ -116,6 +116,16 @@ export default function SignInPage() {
             "Sign In"
           )}
         </motion.button>
+
+        <p className="text-center text-sm text-muted-foreground">
+          First time?{" "}
+          <a
+            href="/setup"
+            className="text-accent hover:underline font-medium"
+          >
+            Create an account
+          </a>
+        </p>
       </form>
     </AuthLayout>
   );

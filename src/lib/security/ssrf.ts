@@ -75,13 +75,6 @@ export function validateUrlForSSRF(urlString: string): string | null {
     return "URLs with credentials are not allowed";
   }
 
-  // Block non-standard ports for additional security
-  const port = url.port ? parseInt(url.port) : (url.protocol === "https:" ? 443 : 80);
-  if (port !== 80 && port !== 443 && port !== 8080) {
-    // Allow common web ports but block others
-    return "Non-standard ports are not allowed";
-  }
-
   return null; // URL is safe
 }
 

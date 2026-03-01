@@ -4,6 +4,62 @@ import * as articleRepo from "@/lib/db/repositories/articleRepository";
 import * as feedRepo from "@/lib/db/repositories/feedRepository";
 
 /**
+ * POST /api/articles
+ * Persist articles to the database (called after client-side feed parsing)
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { feedId, articles: articleData } = body;
+
+    if (!feedId || !Array.isArray(articleData) || articleData.length === 0) {
+      return NextResponse.json(
+        { error: "feedId and articles array required" },
+        { status: 400 }
+      );
+    }
+
+    // Verify feed ownership
+    const feed = await feedRepo.getFeedById(feedId, user.id);
+    if (!feed) {
+      return NextResponse.json(
+        { error: "Feed not found or access denied" },
+        { status: 404 }
+      );
+    }
+
+    const created = await articleRepo.createArticlesBulk(
+      articleData.map((a: Record<string, unknown>) => ({
+        feedId,
+        guid: a.guid as string,
+        title: a.title as string,
+        link: (a.link as string) || "",
+        author: a.author as string | undefined,
+        summary: a.summary as string | undefined,
+        content: a.content as string | undefined,
+        imageUrl: a.imageUrl as string | undefined,
+        publishedAt: a.publishedAt
+          ? new Date(a.publishedAt as string | number).toISOString()
+          : new Date().toISOString(),
+      }))
+    );
+
+    return NextResponse.json({ created: created.length });
+  } catch (error) {
+    console.error("Error creating articles:", error);
+    return NextResponse.json(
+      { error: "Failed to create articles" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * PATCH /api/articles
  * Batch update article states (e.g., mark multiple as read)
  */
