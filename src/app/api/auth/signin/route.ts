@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     });
     response.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: request.headers.get("x-forwarded-proto") === "https",
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7,
       path: "/",
