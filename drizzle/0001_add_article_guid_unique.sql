@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS `articles_feed_guid_unique` ON `articles` (`feed_id`, `guid`);

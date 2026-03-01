@@ -56,24 +56,30 @@ export function SubscribeButton({
           throw new Error("Failed to add feed");
         }
 
-        addArticles(
+        const mappedArticles = parsedFeed.items.map((item) => ({
           feedId,
-          parsedFeed.items.map((item) => ({
-            feedId,
-            guid: item.guid,
-            title: item.title,
-            link: item.link,
-            author: item.author,
-            summary: item.summary,
-            content: item.content,
-            publishedAt: item.publishedAt,
-            fetchedAt: Date.now(),
-            isRead: false,
-            isStarred: false,
-            isReadLater: false,
-            imageUrl: item.imageUrl,
-          }))
-        );
+          guid: item.guid,
+          title: item.title,
+          link: item.link,
+          author: item.author,
+          summary: item.summary,
+          content: item.content,
+          publishedAt: item.publishedAt,
+          fetchedAt: Date.now(),
+          isRead: false,
+          isStarred: false,
+          isReadLater: false,
+          imageUrl: item.imageUrl,
+        }));
+
+        addArticles(feedId, mappedArticles);
+
+        // Persist to database
+        fetch("/api/articles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ feedId, articles: mappedArticles }),
+        }).catch((err) => console.error("Failed to persist articles:", err));
 
         onSuccess?.();
       } catch (error) {

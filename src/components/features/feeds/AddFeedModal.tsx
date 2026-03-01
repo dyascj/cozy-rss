@@ -87,25 +87,31 @@ export function AddFeedModal() {
         throw new Error("Failed to add feed");
       }
 
-      // Add articles
-      addArticles(
+      const mappedArticles = feed.items.map((item) => ({
         feedId,
-        feed.items.map((item) => ({
-          feedId,
-          guid: item.guid,
-          title: item.title,
-          link: item.link,
-          author: item.author,
-          summary: item.summary,
-          content: item.content,
-          publishedAt: item.publishedAt,
-          fetchedAt: Date.now(),
-          isRead: false,
-          isStarred: false,
-          isReadLater: false,
-          imageUrl: item.imageUrl,
-        }))
-      );
+        guid: item.guid,
+        title: item.title,
+        link: item.link,
+        author: item.author,
+        summary: item.summary,
+        content: item.content,
+        publishedAt: item.publishedAt,
+        fetchedAt: Date.now(),
+        isRead: false,
+        isStarred: false,
+        isReadLater: false,
+        imageUrl: item.imageUrl,
+      }));
+
+      // Add to client store
+      addArticles(feedId, mappedArticles);
+
+      // Persist to database
+      await fetch("/api/articles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedId, articles: mappedArticles }),
+      });
 
       // Reset and close
       setUrl("");
